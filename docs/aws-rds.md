@@ -262,5 +262,54 @@ Nguyên tắc:
 | Kiến trúc microservices, nhiều domain nghiệp vụ khác nhau                          | **2.7 – Nhiều RDS riêng cho từng service (polyglot)**       | Mỗi service own DB riêng (có thể khác engine), giảm coupling, dễ scale & triển khai độc lập |
 | Hệ thống đã dùng Aurora, cần HA + scale read trong 1 Region                        | Aurora cluster (Writer + Aurora Replicas, tương tự 2.2–2.3) | Kiến trúc tương tự Multi-AZ + Read Replicas nhưng dùng Aurora-specific features             |
 
+---
 
+### 3. Automated Backups vs Manual Snapshots (RDS)
+
+RDS cung cấp **2 cơ chế chính** để backup: **Automated Backups** và **Manual DB Snapshots**. Cả hai đều dùng cho **restore** nhưng khác nhau về cách tạo, thời gian giữ, và use case.
+
+#### 3.1. Automated Backups
+
+- Được **bật tự động** khi tạo RDS (trừ khi bạn tắt).
+- Gồm:
+  - **Daily backup** (full snapshot tự động).
+  - **Transaction logs** để hỗ trợ **Point‑in‑Time Recovery (PITR)**.
+- **Retention**: cấu hình từ **1–35 ngày**.
+- Dùng để:
+  - Khôi phục DB về **một thời điểm cụ thể** trong khoảng retention.
+  - Tạo **DB mới** từ backup (không overwrite DB cũ).
+- Lưu trữ trên S3 (ẩn với người dùng), thường **miễn phí** đến dung lượng bằng với dung lượng DB (vượt quá sẽ tính phí).
+
+**Ví dụ (CLI – chỉnh retention & backup window):**
+
+```bash
+aws rds modify-db-instance \
+  --db-instance-identifier my-rds-pg \
+  --backup-retention-period 7 \
+  --preferred-backup-window 02:00-03:00 \
+  --apply-immediately
+```
+
+#### 3.2. Manual DB Snapshots
+
+    - Bạn tự tay tạo, gọi là DB Snapshot.
+    - Không bị xóa tự động – tồn tại cho đến khi bạn tự xóa.
+    - Thích hợp cho:
+        - Trước khi nâng cấp phiên bản DB.
+        - Trước khi thay đổi schema lớn (migration, refactor).
+        - Lưu trữ dài hạn phục vụ audit/compliance.
+        - Copy snapshot cross‑Region để làm DR.
+
+**Ví dụ (CLI – tạo và xóa snapshot):**
+```bash
+# Tạo snapshot thủ công
+aws rds create-db-snapshot \
+  --db-instance-identifier my-rds-pg \
+  --db-snapshot-identifier my-rds-pg-pre-upgrade-2026-04-21
+
+# Xóa snapshot khi không cần nữa
+aws rds delete-db-snapshot \
+  --db-snapshot-identifier my-rds-pg-pre-upgrade-2026-04-21
+
+```
 
