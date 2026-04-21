@@ -44,7 +44,7 @@ Chi tiết hỗ trợ (ví dụ: cross‑Region read replica) tùy engine/versio
 
 - 1 instance, 1 AZ.
 - Không standby, không read replica.
-
+...
 ```mermaid
 flowchart LR
     App[Application] -->|SQL| DB[RDS DB Instance (Single-AZ)]
