@@ -648,3 +648,134 @@ Phần này tóm tắt **quy trình chuẩn** migrate từ **Oracle on‑prem** 
     - Export SQL script → chạy bằng psql.
       
 _Kết quả: RDS PostgreSQL có schema tương đương Oracle, sẵn sàng nhận dữ liệu._
+
+#### 9.5. Bước 4 – Tạo DMS Replication Instance & Endpoints
+
+Tạo Replication Instance:
+
+```bash
+aws dms create-replication-instance \
+  --replication-instance-identifier oracle-to-rds-pg \
+  --replication-instance-class dms.r6g.large \
+  --allocated-storage 200 \
+  --vpc-security-group-ids sg-dms \
+  --replication-subnet-group-identifier dms-subnet-group
+
+```
+
+Tạo Source Endpoint (Oracle):
+```bash
+aws dms create-endpoint \
+  --endpoint-identifier oracle-src \
+  --endpoint-type source \
+  --engine-name oracle \
+  --username dms_user \
+  --password 'YourPassw0rd' \
+  --server-name oracle.onprem.local \
+  --port 1521 \
+  --database-name ORCL
+
+```
+
+Tạo Target Endpoint (RDS PostgreSQL):
+```bash
+aws dms create-endpoint \
+  --endpoint-identifier rds-pg-target \
+  --endpoint-type target \
+  --engine-name postgres \
+  --username pg_migration \
+  --password 'YourPassw0rd' \
+  --server-name my-rds-pg.xxxxx.ap-southeast-1.rds.amazonaws.com \
+  --port 5432 \
+  --database-name myappdb
+
+```
+
+#### 9.6. Bước 5 – Tạo DMS Migration Task
+
+Phổ biến nhất: Full load + CDC (downtime thấp).
+```bash
+aws dms create-replication-task \
+  --replication-task-identifier oracle-to-pg-task \
+  --source-endpoint-arn arn:aws:dms:...:endpoint:oracle-src \
+  --target-endpoint-arn arn:aws:dms:...:endpoint:rds-pg-target \
+  --replication-instance-arn arn:aws:dms:...:rep:oracle-to-rds-pg \
+  --migration-type full-load-and-cdc \
+  --table-mappings file://table-mappings.json \
+  --replication-task-settings file://task-settings.json
+
+```
+
+- table-mappings.json: định nghĩa schema/bảng nào migrate (include/exclude).
+- task-settings.json: config:
+    - Full load tuning (parallel load, batch size).
+    - CDC settings.
+
+**Luồng:**
+
+**1. Full load:**
+   
+    - Copy toàn bộ dữ liệu hiện tại từ Oracle → RDS PostgreSQL.
+      
+**2. CDC (Change Data Capture):**
+   
+    - Sau khi full load xong, DMS đọc redo log/archivelog Oracle.
+    - Áp dụng thay đổi mới (INSERT/UPDATE/DELETE) lên PostgreSQL.
+    - Giúp giữ 2 DB gần như đồng bộ.
+
+#### 9.7. Bước 6 – Kiểm tra & Tinh chỉnh
+
+- Kiểm tra:
+  
+    - Số dòng từng bảng (row count).
+    - Một số query nghiệp vụ quan trọng (kết quả & hiệu năng).
+      
+- Có thể chia nhỏ:
+  
+    - Nhiều task theo schema/module nếu DB rất lớn.
+      
+- Theo dõi:
+  
+    - CloudWatch metrics của DMS (CPU, lag, throughput).
+    - Task logs (lỗi mapping, type mismatch, PK conflict…).
+
+#### 9.8. Bước 7 – Cutover (chuyển hẳn sang RDS PostgreSQL)
+
+    1. Chọn thời điểm downtime (ngoài giờ cao điểm).
+    2. Trên app:
+        - Dừng ghi vào Oracle (chuyển sang read‑only hoặc tắt app).
+    3. Chờ DMS:
+        - CDC lag = 0 (mọi thay đổi đã replicate sang PostgreSQL).
+    4. Stop / pause task DMS (đảm bảo không ghi thêm).
+    5. Kiểm tra nhanh:
+        - Row count.
+        - Một vài báo cáo/transaction test.
+    6.Cập nhật cấu hình app:
+        - Trỏ connection string sang RDS PostgreSQL.
+    7. Mở lại app ở trạng thái read/write trên PostgreSQL.
+
+#### 9.9. Một số lưu ý & Best Practices
+
+- **Khác biệt Oracle vs PostgreSQL:**
+
+    - Data types: NUMBER, DATE, CLOB/BLOB vs NUMERIC, TIMESTAMP, TEXT, BYTEA.
+    - Sequence / identity: Oracle SEQUENCE vs PostgreSQL SERIAL/IDENTITY.
+    - PL/SQL vs PL/pgSQL: nhiều thủ tục cần chỉnh tay sau SCT.
+      
+- **Hiệu năng:**
+
+    - Chọn DMS instance đủ lớn (dms.r6g.large trở lên cho DB lớn).
+    - Bật parallel load cho bảng lớn.
+    - Tránh chạy full load giờ DB on‑prem đang rất bận.
+      
+- **An toàn dữ liệu:**
+
+    - Snapshot / backup Oracle trước khi migration lớn.
+    - Bật Automated Backups + Multi-AZ cho RDS PostgreSQL.
+      
+**Gợi ý:**
+
+Với DB rất lớn (TB), nên cân nhắc:
+
+    - Chia nhỏ theo schema/module.
+    - Kết hợp Pre‑load bulk data (Data Pump/S3) + DMS CDC để giảm thời gian full load.
