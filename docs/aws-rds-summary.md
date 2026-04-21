@@ -590,3 +590,61 @@ Phần này tóm tắt **quy trình chuẩn** migrate từ **Oracle on‑prem** 
                                                          |  |   Instance     |  |
                                                          |  +----------------+  |
                                                          +----------------------+
+```
+
+#### 9.2. Bước 1 – Chuẩn bị Network & Quyền
+
+**Network:**
+
+- Thiết lập VPN site‑to‑site hoặc AWS Direct Connect từ on‑prem → VPC AWS.
+- Đảm bảo:
+    - DMS Replication Instance truy cập được:
+        - Oracle on‑prem (port 1521).
+        - RDS PostgreSQL (port 5432).
+          
+**Quyền trên Oracle:**
+
+- Tạo user cho DMS với quyền tối thiểu:
+    - CONNECT
+    - SELECT trên các schema/tables cần migrate.
+    - Quyền đọc redo/archivelog nếu dùng CDC (Change Data Capture).
+      
+**Quyền trên PostgreSQL:**
+
+- User có quyền:
+    - Tạo schema/table/index (nếu để DMS/SCT tạo).
+    - Hoặc quyền INSERT/UPDATE/DELETE trên các bảng target.
+
+#### 9.3. Bước 2 – Tạo RDS PostgreSQL Target
+
+- Tạo RDS PostgreSQL (hoặc Aurora PostgreSQL) với:
+    - Cỡ instance & storage đủ cho toàn bộ dữ liệu + tăng trưởng.
+    - Bật:
+        - Multi‑AZ nếu là production.
+        - Automated Backups.
+
+#### 9.4. Bước 3 – Convert Schema với AWS SCT
+
+1. Cài AWS SCT trên máy client (Windows/Linux/Mac).
+   
+2. Trong SCT:
+   
+    - Tạo kết nối Source: Oracle on‑prem.
+    - Tạo kết nối Target: RDS PostgreSQL.
+      
+3. Chạy Assessment Report:
+    - SCT cho biết:
+        - Bao nhiêu % object tự convert được.
+        - Cái nào cần chỉnh tay (PL/SQL phức tạp, package, function…).
+          
+4. Convert schema:
+   
+    - Chọn schema Oracle → chuột phải → Convert schema.
+    - Xem & chỉnh sửa mapping (data types, tên schema… nếu cần).
+      
+5. Apply schema lên RDS PostgreSQL:
+   
+    - Direct apply từ SCT, hoặc
+    - Export SQL script → chạy bằng psql.
+      
+_Kết quả: RDS PostgreSQL có schema tương đương Oracle, sẵn sàng nhận dữ liệu._
