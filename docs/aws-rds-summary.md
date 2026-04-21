@@ -450,3 +450,58 @@ aws rds start-export-task \
 - Lưu credentials trong **Secrets Manager** và **tự động rotate**  
 - Bật **automated backups**, dùng **Multi-AZ** cho HA  
 - Dùng **IAM** để giới hạn ai được thao tác với RDS & snapshot 
+
+---
+
+## 6. Monitoring & Query Tuning
+
+### 6.1. Performance Insights
+
+- Bật trên RDS/Aurora
+- Cho biết:
+  - DB load
+  - Top SQL
+  - Top waits / users / hosts
+- Dùng để:
+  - Tìm **query chậm/nặng**
+  - Phân tích bottleneck
+
+### 6.2. CloudWatch Metrics
+
+- Giám sát:
+  - CPU, Memory, IOPS, Disk Queue, Connections
+- Khi bất thường:
+  - Vào Performance Insights / DB logs để soi chi tiết
+
+### 6.3. Slow Query Logs
+
+**MySQL / MariaDB / Aurora MySQL**
+
+- Parameter Group:
+  ```ini
+  slow_query_log = 1
+  long_query_time = 1        # giây – chỉnh theo nhu cầu
+  log_output = FILE
+  ```
+
+- Xem log:
+    - RDS Console → DB → Logs & events
+    - Hoặc đẩy sang CloudWatch Logs
+
+**PostgreSQL / Aurora PostgreSQL**
+
+    - Parameter Group:
+    ```ini
+    log_min_duration_statement = 1000   # ms
+    log_connections = on
+    log_disconnections = on
+    ```
+    
+    - Nếu dùng pg_stat_statements:
+    ```ini
+    SELECT query, calls, total_time, mean_time
+    FROM pg_stat_statements
+    ORDER BY total_time DESC
+    LIMIT 20;
+
+    ```
