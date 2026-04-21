@@ -248,3 +248,19 @@ Nguyên tắc:
 - Không cho service khác truy cập DB trực tiếp (giao tiếp qua API/message).
 
 ```
+
+### 2.8. Khi nào chọn mô hình nào?
+
+| Yêu cầu / Bối cảnh                                                                 | Mô hình gợi ý                                                | Ghi chú ngắn                                                                                 |
+|------------------------------------------------------------------------------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Dev/Test, môi trường lab, POC, chi phí thấp                                       | **2.1 – Single-AZ, Single Instance**                        | Đơn giản, rẻ, không HA; chấp nhận downtime khi instance/AZ gặp sự cố                        |
+| Production nhỏ, yêu cầu sẵn sàng (HA) trong cùng 1 Region                          | **2.2 – Multi-AZ**                                          | Tự động failover AZ; không scale read; phù hợp OLTP phổ thông                               |
+| Production, read-heavy trong 1 Region (nhiều báo cáo / dashboard / API đọc nhiều) | **2.3 – Multi-AZ + Read Replicas**                          | Multi-AZ cho HA, replicas để chia tải đọc                                                   |
+| Cần DR cấp Region, hoặc người dùng ở nhiều châu lục cần đọc nhanh                  | **2.4 – Cross-Region Read Replicas**                        | Primary 1 Region, replicas Region khác; DR manual (promote replica khi Region chính lỗi)    |
+| Muốn tách OLTP và Analytics/ETL để query nặng không ảnh hưởng giao dịch            | **2.5 – Read Replica cho BI/ETL**                           | Chạy báo cáo, ETL, truy vấn nặng trên replica                                               |
+| Ứng dụng đọc rất nhiều, dữ liệu ít thay đổi, cần latency thấp (ms → sub‑ms)       | **2.6 – RDS + ElastiCache (Cache-Aside)**                    | RDS làm nguồn dữ liệu chính, cache phía trước để giảm tải & tăng tốc độ                     |
+| Kiến trúc microservices, nhiều domain nghiệp vụ khác nhau                          | **2.7 – Nhiều RDS riêng cho từng service (polyglot)**       | Mỗi service own DB riêng (có thể khác engine), giảm coupling, dễ scale & triển khai độc lập |
+| Hệ thống đã dùng Aurora, cần HA + scale read trong 1 Region                        | Aurora cluster (Writer + Aurora Replicas, tương tự 2.2–2.3) | Kiến trúc tương tự Multi-AZ + Read Replicas nhưng dùng Aurora-specific features             |
+
+
+
