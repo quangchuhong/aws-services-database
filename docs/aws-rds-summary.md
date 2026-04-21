@@ -488,8 +488,8 @@ aws rds start-export-task \
     - RDS Console → DB → Logs & events
     - Hoặc đẩy sang CloudWatch Logs
 
-**PostgreSQL / Aurora PostgreSQL**
 
+**PostgreSQL / Aurora PostgreSQL**
     - Parameter Group:
     ```ini
     log_min_duration_statement = 1000   # ms
