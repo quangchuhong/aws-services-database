@@ -38,11 +38,18 @@ Bạn tập trung vào:
 Các mô hình dưới đây áp dụng cho hầu hết engine RDS (MySQL, MariaDB, PostgreSQL, Oracle, SQL Server).  
 Chi tiết hỗ trợ (ví dụ: cross‑Region read replica) tùy engine/version.
 
-### 2.1. ...
-...
+### 2.1. Mô hình 1 – Single-AZ, Single Instance
+
+**Use case:** Dev/Test, non‑critical, chi phí thấp.
+
+- 1 instance, 1 AZ.
+- Không standby, không read replica.
+
 ```mermaid
 flowchart LR
-    ...
+    App[Application] -->|SQL| DB[RDS DB Instance (Single-AZ)]
+    DB --> B[(Automated Backups to S3)]
+...
 
 
 
