@@ -313,3 +313,36 @@ aws rds delete-db-snapshot \
 
 ```
 
+#### 3.3. Export Snapshot to S3
+
+Export snapshot to S3 là chức năng:
+
+    - Lấy dữ liệu từ một RDS snapshot (manual hoặc automated),
+    - Chuyển đổi sang định dạng file trên S3 (thường là Parquet, đôi khi CSV/JSON tùy engine),
+    - Để dùng cho analytics / data lake, không phải để restore trực tiếp thành RDS.
+
+**Use case:**
+
+    - Phân tích dữ liệu RDS bằng:
+        - Athena, Glue, EMR, Spark, Redshift Spectrum, v.v.
+    - Kết hợp dữ liệu DB với data lake trên S3.
+    - Lưu trữ dữ liệu dạng file (archive) thay vì snapshot DB.
+
+**Quan trọng:**
+
+- Export từ snapshot ra S3 **KHÔNG** dùng trực tiếp để restore lại RDS.
+- Nếu muốn “đưa ngược lại vào RDS”, bạn phải:
+  1. Tạo RDS mới (hoặc tạo sẵn bảng trống).
+  2. Dùng ETL (psql/mysql, lệnh `COPY`, AWS Glue, ứng dụng riêng…) để **load dữ liệu từ S3 vào RDS**.
+
+**Ví dụ (CLI – start export task):**
+
+```bash
+aws rds start-export-task \
+  --export-task-identifier export-my-rds-pg-2026-04-21 \
+  --source-arn arn:aws:rds:ap-southeast-1:123456789012:snapshot:my-rds-pg-snap-2026-04-21 \
+  --s3-bucket-name my-rds-exports \
+  --iam-role-arn arn:aws:iam::123456789012:role/rds-s3-export-role \
+  --kms-key-id arn:aws:kms:ap-southeast-1:123456789012:key/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+
