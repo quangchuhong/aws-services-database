@@ -402,4 +402,51 @@ aws rds start-export-task \
 
 > Lưu ý: cross-account share chỉ áp dụng cho **snapshot**, không chia sẻ trực tiếp “running instance”.
 
+---
 
+### 5. Bảo mật (Security Best Practices)
+
+#### 5.1. Network & Access
+
+- Đặt RDS trong **private subnet**, **không public Internet**
+- **Security Group**:
+  - Chỉ mở port DB cho:
+    - App server SG
+    - Bastion host SG (nếu cần)
+  - Không mở 0.0.0.0/0 cho production
+
+#### 5.2. Encryption
+
+- **At rest**:
+  - Bật khi tạo DB (KMS key)
+  - Mã hóa: data file, backups, snapshots, logs
+- **In transit**:
+  - Dùng **SSL/TLS**
+  - Bật `require SSL` / `rds.force_ssl` (tùy engine)
+  - Cấu hình client/ORM kết nối qua SSL
+
+#### 5.3. Authentication & Credentials
+
+- Không dùng **master user** cho ứng dụng
+- Tạo user riêng cho app, phân quyền **least privilege**
+- Lưu credentials trong:
+  - **AWS Secrets Manager**
+    - Hỗ trợ **rotation tự động**
+
+#### 5.4. IAM & Audit
+
+- Dùng **IAM policies** để:
+  - Giới hạn ai được create/modify/delete RDS
+  - Giới hạn ai được copy/xóa snapshot
+- Bật **CloudTrail**:
+  - Theo dõi mọi API call liên quan RDS & KMS
+
+#### 5.5. Best Practices tóm tắt
+
+- Đặt RDS trong **private subnet**, không public Internet  
+- Hạn chế port trong **Security Group**, chỉ cho phép từ app/bastion  
+- Bật **encryption at rest** + **SSL/TLS in transit**  
+- Không dùng **master user** cho app; tạo user riêng, phân quyền hạn chế  
+- Lưu credentials trong **Secrets Manager** và **tự động rotate**  
+- Bật **automated backups**, dùng **Multi-AZ** cho HA  
+- Dùng **IAM** để giới hạn ai được thao tác với RDS & snapshot 
