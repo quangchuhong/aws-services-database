@@ -262,6 +262,24 @@ Nguyên tắc:
 | Kiến trúc microservices, nhiều domain nghiệp vụ khác nhau                          | **2.7 – Nhiều RDS riêng cho từng service (polyglot)**       | Mỗi service own DB riêng (có thể khác engine), giảm coupling, dễ scale & triển khai độc lập |
 | Hệ thống đã dùng Aurora, cần HA + scale read trong 1 Region                        | Aurora cluster (Writer + Aurora Replicas, tương tự 2.2–2.3) | Kiến trúc tương tự Multi-AZ + Read Replicas nhưng dùng Aurora-specific features             |
 
+
+#### 2.9 So sánh: RDS Multi‑AZ (instance), RDS Multi‑AZ DB Cluster và Aurora Cluster
+
+| Thuộc tính                               | RDS Multi‑AZ (instance-based)                      | RDS Multi‑AZ DB Cluster (MySQL/PG)                        | Aurora Cluster (Aurora MySQL/PG)                    |
+|------------------------------------------|----------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------|
+| Kiểu triển khai                          | 1 Primary + 1 Standby                              | Cluster 1 writer + 2 reader (Multi‑AZ)                   | Cluster 1 writer + đến 15 replicas                  |
+| Số AZ tham gia                           | 2 AZ (Primary + Standby)                           | 3 AZ (3 instances, shared storage kiểu mới)              | 3 AZ (shared storage 6 bản sao)                     |
+| Standby/read node có đọc được không?     | **Không** – standby chỉ để failover                | **Có** – 2 reader có thể dùng để đọc                     | **Có** – tất cả Aurora Replicas đọc được            |
+| Endpoint                                 | 1 endpoint chung (primary)                         | Cluster endpoint (writer) + reader endpoint              | Cluster endpoint (writer) + reader endpoint         |
+| Failover                                 | Tự động, thường chậm hơn cluster                   | Tự động, nhanh hơn (giống Aurora‑like)                   | Tự động, rất nhanh                                  |
+| Dùng để làm gì chính                     | HA trong 1 Region (không scale read)               | HA + limited read scaling (3 instance trong cluster)      | HA + scale read mạnh (tới 15 replicas)              |
+| Engine                                   | RDS MySQL/PG/MariaDB/Oracle/SQL Server             | RDS MySQL, RDS PostgreSQL (phiên bản được hỗ trợ)        | Aurora MySQL, Aurora PostgreSQL                     |
+
+> Nên hiểu:  
+> - “Multi‑AZ” **không đồng nghĩa** với “cluster”, trừ kiểu **Multi‑AZ DB Cluster** mới.  
+> - Aurora luôn là cluster Multi‑AZ theo thiết kế.
+
+
 ---
 
 ### 3. Automated Backups vs Manual Snapshots (RDS)
