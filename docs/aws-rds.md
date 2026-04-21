@@ -62,6 +62,69 @@ Application
    Automated Backups (S3)
 ```
 
+### 2.2. Mô hình 2 – Multi-AZ (High Availability)
+
+**Use case:** Production cần HA trong 1 Region, RTO thấp.
+
+- 1 Primary (read/write) + 1 Standby (ẩn) ở AZ khác.
+- Replication synchronous.
+- Standby không dùng để đọc.
+
+Luồng đơn giản:
+
+```text
+               +----------------------+
+               |   Application        |
+               +----------+-----------+
+                          |
+                          v
+                  (DB Endpoint chung)
+                          |
+                          v
+        +-----------------+-----------------+
+        |                                   |
+        v                                   v
++--------------------+             +--------------------+
+| Primary RDS DB     |  <=====>    | Standby RDS DB     |
+| (AZ-A, Read/Write) |  Sync repl  | (AZ-B, Failover)   |
++--------------------+             +--------------------+
+                                           |
+                                           v
+                                Automated Backups (S3)
+```
+
+### 2.3. Mô hình 3 – Multi-AZ + Read Replicas (Read Scaling + HA)
+
+**Use case:** Production, read-heavy trong 1 Region.
+
+Multi-AZ cho HA.
+
+Nhiều Read Replicas để scale đọc.
+
+```text
+                    +----------------------+
+                    |     Application      |
+                    +----------+-----------+
+                               |
+         +---------------------+----------------------+
+         |                     |                      |
+         v                     v                      v
++--------------------+  +--------------------+  +--------------------+
+|  Primary RDS DB    |  | Read Replica 1     |  | Read Replica 2     |
+|  (Multi-AZ, RW)    |  | (AZ-B, Read-only)  |  | (AZ-C, Read-only)  |
++----------+---------+  +--------------------+  +--------------------+
+           |
+           |  Synchronous
+           v  replication (Multi-AZ)
++--------------------+
+| Standby RDS DB     |
+| (AZ-B, Failover)   |
++--------------------+
+           |
+           v
+  Automated Backups (S3)
+
+```
 
 
 
