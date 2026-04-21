@@ -72,3 +72,42 @@ Bạn tập trung vào:
                     |
                     v
           Continuous Backups (S3)
+```
+
+### 2.2. Mô hình 2 – Aurora Cluster: 1 Writer + N Readers (Read Scaling + HA in-Region)
+
+**Use case:** Production, read-heavy trong 1 Region, yêu cầu HA cao.
+
+- 1 Writer.
+- Tối đa 15 Aurora Replicas (Readers) trong cùng Region.
+- Tất cả share storage layer Multi‑AZ.
+- Failover:
+  - Khi writer lỗi → 1 reader được promote thành writer.
+    
+```text
+                    +----------------------+
+                    |     Application      |
+                    +----------+-----------+
+                               |
+         +---------------------+-------------------------------+
+         |                     |                  ...          |
+         v                     v                               v
++-----------------+   +------------------+            +------------------+
+| Aurora Writer   |   | Aurora Reader 1  |   ...      | Aurora Reader N  |
+| (Read/Write)    |   | (Read-only)      |            | (Read-only)      |
++--------+--------+   +---------+--------+            +---------+--------+
+         \                    |                               /
+          \                   |                              /
+           \                  v                             /
+            +----------------------------------------------+
+            |
+            v
+     +----------------------+
+     | Shared Storage Layer |
+     | 6 copies / 3 AZs     |
+     +----------------------+
+                    |
+                    v
+          Continuous Backups (S3)
+
+```
