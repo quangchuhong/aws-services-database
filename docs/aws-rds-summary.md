@@ -562,3 +562,31 @@ Một số lỗi “kinh điển” làm RDS quá tải / lỗi:
 
     - ALTER TABLE nặng giờ cao điểm
     - Script update lớn không chia batch
+---
+
+### 9. DMS Migration Oracle on‑prem → RDS PostgreSQL
+
+Phần này tóm tắt **quy trình chuẩn** migrate từ **Oracle on‑prem** lên **Amazon RDS for PostgreSQL** bằng:
+
+- **AWS Schema Conversion Tool (SCT)** – chuyển **schema** Oracle → PostgreSQL.
+- **AWS Database Migration Service (DMS)** – chuyển **data** (full load + CDC).
+
+---
+
+#### 9.1. Kiến trúc tổng quan
+
+```text
++--------------------+        VPN / Direct Connect       +----------------------+
+| Oracle on-prem     |  <------------------------------> |  AWS VPC             |
+| (Source DB)        |                                   |                      |
++---------+----------+                                   |  +----------------+  |
+          |                                              |  | RDS PostgreSQL |  |
+          |                                              |  | (Target DB)    |  |
+          |                                              |  +--------+-------+  |
+          |                                              |           ^          |
+          v                                              |           |          |
+   AWS SCT (Schema Conversion)                           |  +--------+-------+  |
+                                                         |  | DMS Replication|  |
+                                                         |  |   Instance     |  |
+                                                         |  +----------------+  |
+                                                         +----------------------+
