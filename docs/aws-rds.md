@@ -40,12 +40,22 @@ Chi tiết hỗ trợ (ví dụ: cross‑Region read replica) tùy engine/versio
 
 ### 2.1. Mô hình 1 – Single-AZ, Single Instance
 
-**Use case:** Dev/Test, non‑critical, chi phí thấp.
-
-- 1 instance, 1 AZ.
-- Không standby, không read replica.
-
 ```mermaid
 flowchart LR
     App[Application] -->|SQL| DB[RDS DB Instance (Single-AZ)]
     DB --> B[(Automated Backups to S3)]
+```
+
+### 2.2. Mô hình 2 – Multi-AZ (High Availability)
+
+```mermaid
+flowchart LR
+    App[Application] -->|DB Endpoint| P[(Primary RDS DB - AZ-A)]
+    P -->|Synchronous Replication| S[(Standby RDS DB - AZ-B)]
+    S --> B[(Automated Backups to S3)]
+
+    classDef primary fill=#4CAF50,stroke=#333,stroke-width=1,color=#fff;
+    classDef standby fill=#FFC107,stroke=#333,stroke-width=1;
+    class P primary;
+    class S standby;
+```
