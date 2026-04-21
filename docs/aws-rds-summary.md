@@ -508,3 +508,57 @@ aws rds start-export-task \
     LIMIT 20;
 
     ```
+
+### 7. Parameter quan trọng (MySQL/PostgreSQL)
+
+#### 7.1. Nhóm kết nối
+
+    - max_connections
+    - wait_timeout / interactive_timeout (MySQL)
+    - work_mem, max_connections (PostgreSQL)
+    
+#### 7.2. Logging
+
+    - MySQL / Aurora MySQL:
+        - slow_query_log, long_query_time, log_output
+    - PostgreSQL / Aurora PG:
+        - log_min_duration_statement
+        - log_connections, log_disconnections
+        - shared_preload_libraries = 'pg_stat_statements' (nếu dùng)
+        
+#### 7.3. SSL/TLS
+
+    - MySQL:
+        - require_secure_transport = ON (tùy version)
+    - PostgreSQL:
+        - rds.force_ssl = 1
+        
+---
+
+
+### 8. Lỗi thường gặp từ phía ứng dụng
+
+Một số lỗi “kinh điển” làm RDS quá tải / lỗi:
+
+1. **Connection handling kém**
+
+    - Không dùng connection pool
+    - Connection leak → chạm max_connections
+    - Connection idle quá nhiều / quá lâu
+
+2. **Query & ORM không tối ưu**
+
+    - SELECT * trên bảng lớn, không LIMIT
+    - Thiếu index → full table scan
+    - N+1 query (ORM)
+    - Transaction giữ lâu → lock, deadlock
+      
+3. **Pattern đọc/ghi không hợp lý**
+
+    - Không dùng cache (ElastiCache/DAX) cho dữ liệu đọc lặp
+    - Ghi quá nhiều record nhỏ liên tục, không batch
+      
+4. **Migration / deploy thiếu cẩn trọng**
+
+    - ALTER TABLE nặng giờ cao điểm
+    - Script update lớn không chia batch
