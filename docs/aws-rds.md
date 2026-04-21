@@ -344,5 +344,42 @@ aws rds start-export-task \
   --s3-bucket-name my-rds-exports \
   --iam-role-arn arn:aws:iam::123456789012:role/rds-s3-export-role \
   --kms-key-id arn:aws:kms:ap-southeast-1:123456789012:key/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+---
+
+#### 4. Cross-account restore từ RDS Snapshot
+
+Để dùng một RDS snapshot ở **Account A** để restore DB ở **Account B**:
+
+4.1. **Chỉ dùng được Manual Snapshot**  
+   - Nếu đang có automated backup → tạo manual snapshot từ DB trước.
+
+4.2. **Ở Account A (source)**  
+   - Tạo manual snapshot (nếu chưa có):
+     ```bash
+     aws rds create-db-snapshot \
+       --db-instance-identifier my-rds \
+       --db-snapshot-identifier my-rds-share-to-accB
+     ```
+   - Share snapshot cho Account B (`111122223333`):
+     ```bash
+     aws rds modify-db-snapshot-attribute \
+       --db-snapshot-identifier my-rds-share-to-accB \
+       --attribute-name restore \
+       --values-to-add 111122223333
+     ```
+   - Nếu snapshot **encrypted (KMS)**:  
+     - Phải share **KMS CMK** cho Account B (chỉnh key policy / grant trong KMS).
+
+4.3. **Ở Account B (target)**  
+   - Vào RDS → Snapshots → tab **Shared with me** → chọn snapshot.  
+   - Restore:
+     ```bash
+     aws rds restore-db-instance-from-db-snapshot \
+       --db-instance-identifier restored-from-other-account \
+       --db-snapshot-identifier my-rds-share-to-accB
+     ```
+
+> Lưu ý: cross-account share chỉ áp dụng cho **snapshot**, không chia sẻ trực tiếp “running instance”.
 
 
