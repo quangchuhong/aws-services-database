@@ -263,6 +263,8 @@ Nguyên tắc:
 | Hệ thống đã dùng Aurora, cần HA + scale read trong 1 Region                        | Aurora cluster (Writer + Aurora Replicas, tương tự 2.2–2.3) | Kiến trúc tương tự Multi-AZ + Read Replicas nhưng dùng Aurora-specific features             |
 
 
+
+
 #### 2.9 So sánh: RDS Multi‑AZ (instance), RDS Multi‑AZ DB Cluster và Aurora Cluster
 
 | Thuộc tính                               | RDS Multi‑AZ (instance-based)                      | RDS Multi‑AZ DB Cluster (MySQL/PG)                        | Aurora Cluster (Aurora MySQL/PG)                    |
