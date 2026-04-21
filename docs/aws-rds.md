@@ -48,6 +48,7 @@ Chi tiết hỗ trợ (ví dụ: cross‑Region read replica) tùy engine/versio
 
 Luồng đơn giản:
 
+```text
 Application
     |
     v
@@ -58,8 +59,8 @@ Application
 +-------------------------+
             |
             v
-   Automated Backups
-        (S3)
+   Automated Backups (S3)
+```
 
 
 
