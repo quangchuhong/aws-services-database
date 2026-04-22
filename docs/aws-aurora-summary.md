@@ -291,7 +291,7 @@ Aurora có 3 cơ chế “tự co giãn” khác nhau:
 - Bạn định nghĩa range capacity.
 - Aurora tự scale bên trong range theo nhu cầu.
 
-### 10.2. Auto Scaling Aurora Replicas (Reader Auto Scaling)
+### 3.2. Auto Scaling Aurora Replicas (Reader Auto Scaling)
 
 **Áp dụng cho:** Aurora provisioned (không phải Serverless).
 
@@ -335,3 +335,30 @@ Aurora Auto Scaling:
 
 - Reader endpoint phân tải đọc giữa các replicas.
 - Auto Scaling điều chỉnh số readers trong khoảng min–max bạn định nghĩa.
+
+### 3.3. Auto Scaling Storage (Luôn bật, tới 64 TB)
+
+Áp dụng cho: Mọi Aurora cluster (MySQL/PG, provisioned, serverless).
+
+- Bạn không phải set trước 100 GB, 1 TB…
+- Aurora tự tăng dung lượng storage khi dữ liệu lớn dần (đến 64 TB).
+- Không cần downtime để “resize volume” như RDS thường.
+  
+Workflow đơn giản:
+```text
+        +------------------------+
+        |  Aurora Cluster        |
+        |  (Writer + Readers)    |
+        +-----------+------------+
+                    |
+                    v
+        +------------------------+
+        | Shared Storage Layer   |
+        |  (Auto grow to 64 TB)  |
+        +-----------+------------+
+                    ^
+                    |
+       Khi data size tiến gần ngưỡng hiện tại,
+       Aurora tự động allocate thêm storage
+
+```
