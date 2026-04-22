@@ -295,3 +295,58 @@ _**DynamoDB Streams = “change log”** của bảng DynamoDB, giữ tối đa 
 | Use case chính        | Tăng tốc DynamoDB (GetItem/Query)           | Cache cho RDS, DynamoDB, HTTP API, session, leaderboard… |
 | Logic cache           | Ít phải tự code; DAX xử lý nhiều chi tiết   | Tự implement cache-aside / write-through / write-back  |
 | Data model            | Theo DynamoDB (item/document)               | Key–value, data structures Redis (list, set, hash…)   |
+
+---
+
+## 9. DynamoDB Global Tables (Multi-Region Active-Active)
+
+- **Global Tables v2:**
+  
+  - Nhiều Region trong 1 bảng logical.
+  - Mỗi Region: bảng replica.
+  - Dữ liệu replicate 2 chiều qua DynamoDB Streams nội bộ.
+    
+**Use case:**
+
+- Ứng dụng global:
+  - User châu Âu → region EU.
+  - User châu Mỹ → region US.
+- Cần HA ở cấp Region:
+  - Region này down, region khác vẫn hoạt động.
+    
+**Lưu ý:**
+
+  - Bật DynamoDB Streams bắt buộc (DynamoDB tự làm nếu bạn enable Global Tables từ đầu).
+  - Thiết kế idempotent và conflict resolution (viết cùng 1 key ở 2 Region).
+    
+---
+
+## 10. Security & Best Practices
+- **Network:**
+  - Dùng VPC Endpoint cho DynamoDB để traffic không ra Internet.
+- **Encryption:**
+  - At rest: bật KMS (mặc định), có thể dùng CMK.
+  - In transit: HTTPS.
+- **IAM:**
+  - Rất quan trọng:
+    - Tối thiểu quyền: chỉ cho phép app truy cập đúng bảng / action (GetItem, PutItem, Query…).
+- **Design:**
+  - Thiết kế access pattern trước, rồi mới thiết kế bảng & key.
+  - Tránh scan toàn bảng.
+  - Dùng GSI/LSI hợp lý.
+
+---
+
+## 11. Tóm tắt chọn nhanh: DynamoDB vs RDS/Aurora
+
+
+| Nhu cầu / Tính chất                                             | Gợi ý                                                                 |
+|------------------------------------------------------------------|------------------------------------------------------------------------|
+| Dữ liệu quan hệ phức tạp, nhiều join, constraint, transaction dài| **RDS / Aurora (MySQL/PostgreSQL/…)**                                |
+| NoSQL key–value/document, scale rất lớn, latency ms, serverless | **DynamoDB**                                                          |
+| Workload ổn định, cần SQL, dễ migrate từ on‑prem                | **RDS / Aurora**                                                      |
+| Traffic khó đoán, burst mạnh, không muốn quản lý server         | **DynamoDB On‑Demand** (hoặc Provisioned + Auto Scaling)              |
+| Cần multi‑Region active‑active dễ dàng                          | **DynamoDB Global Tables** (hoặc Aurora Global Database cho relational) |
+| Cần query linh hoạt, ad‑hoc, join nhiều bảng                    | **RDS / Aurora**                                                      |
+| Pattern truy cập rõ ràng, lặp đi lặp lại, ưu tiên scale & chi phí| **DynamoDB** (thiết kế theo access pattern trước)                     |
+
