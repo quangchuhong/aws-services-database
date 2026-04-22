@@ -626,3 +626,53 @@ resource "aws_rds_cluster_instance" "aurora_mysql_reader" {
 }
 
 ```
+---
+
+### 5. Aurora Storage, Backups & Fault Tolerance
+
+#### 5.1. Aurora Storage & Fault Tolerance
+
+- Storage layer tự động:
+  - Scale tới 64 TB/cluster.
+  - 6 copies dữ liệu trên 3 AZ (2 bản/AZ).
+- Chịu lỗi:
+  - Mất 2 bản sao vẫn không mất khả năng ghi.
+  - Mất 3 bản sao vẫn đọc được.
+- Compute instances (writer/reader) stateless về storage → failover nhanh.
+  
+#### 5.2. Backups & PITR
+
+- Continuous backup to S3:
+  - Dùng để:
+    - Point‑in‑Time Recovery (PITR) trong retention (giống RDS).
+- Bạn cấu hình:
+  - Backup retention period: 1–35 ngày.
+- Có thể tạo manual snapshots Aurora để:
+  - Giữ dài hạn.
+  - Copy cross‑Region, cross‑account.
+  - Restore cluster mới từ snapshot.
+
+#### 5.3 Aurora (MySQL & PostgreSQL) hỗ trợ Export snapshot to S3 tương tự RDS:
+
+- Bạn chọn Aurora snapshot (manual hoặc automated).
+- Dùng tính năng Start export task để:
+  - Đọc dữ liệu trong snapshot.
+  - Ghi ra S3 (thường dạng Parquet, chia theo database/schema/table/partition).
+- Mục đích:
+  - Phân tích bằng Athena, Glue, EMR, Redshift Spectrum.
+  - Đưa dữ liệu Aurora vào data lake trên S3.
+- **Không dùng trực tiếp để restore Aurora**; muốn “quay lại Aurora”, phải load lại bằng ETL.
+
+Ví dụ CLI:
+```bash
+aws rds start-export-task \
+  --export-task-identifier export-aurora-mysql-2026-04-21 \
+  --source-arn arn:aws:rds:ap-southeast-1:123456789012:snapshot:my-aurora-snap-2026-04-21 \
+  --s3-bucket-name my-aurora-exports \
+  --iam-role-arn arn:aws:iam::123456789012:role/rds-s3-export-role \
+  --kms-key-id arn:aws:kms:ap-southeast-1:123456789012:key/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+```
+
+---
+
