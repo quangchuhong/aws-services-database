@@ -95,3 +95,56 @@ Gợi ý luồng:
 2. App ĐỌC:
    - Đọc từ Redis (primary/replicas qua reader endpoint).
    - Nếu cache miss → đọc DB → ghi cache.
+```
+
+### 2.3. Mô hình 3 – Redis Cluster Mode Enabled (Sharding + HA)
+
+**Use case:** Cache/store rất lớn, throughput rất cao → cần **sharding + HA**, phía sau vẫn có DB (RDS/Aurora) làm nguồn dữ liệu chính.
+
+```text
+                          +----------------------+
+                          |     Application      |
+                          +----------+-----------+
+                                     |
+                             (Redis Cluster client)
+                             Tự hash key → chọn shard
+                                     |
+          +--------------------------+---------------------------+
+          |                          |                           |
+          v                          v                           v
+   +-------------+            +-------------+             +-------------+
+   |  Shard 1    |            |  Shard 2    |             |  Shard 3    |
+   | (Slot range)|            | (Slot range)|             | (Slot range)|
+   +------+------+            +------+------+             +------+------+
+          |                          |                           |
+   +------+-------+          +-------+------+             +------+-------+
+   | Primary 1    |          | Primary 2    |             | Primary 3    |
+   | (Read/Write) |          | (Read/Write) |             | (Read/Write) |
+   +------+-------+          +-------+------+             +-------+------+
+          |                           |                            |
+   Replicas (0-5)              Replicas (0-5)                 Replicas (0-5)
+ (Read-only, HA)             (Read-only, HA)                (Read-only, HA)
+          |                           |                            |
+          +-------------+-------------+-------------+--------------+
+                        |                           |
+                        v                           v
+               +------------------+        +------------------+
+               |   RDS / Aurora   |  ...   |   (các DB khác)  |
+               |  Database chính  |        |  (tuỳ kiến trúc) |
+               +------------------+        +------------------+
+
+Luồng gợi ý:
+1. App ĐỌC:
+   - Gọi Redis Cluster (client) → client hash key → chọn shard (Primary/Replica).
+   - Nếu cache hit → trả về data.
+   - Nếu cache miss → đọc từ RDS/Aurora → ghi vào Redis shard tương ứng.
+
+2. App GHI:
+   - Ghi vào DB chính (RDS/Aurora).
+   - Tùy logic: update/invalid cache trên shard tương ứng (qua Redis Cluster client).
+
+Đặc điểm chính:
+- Keyspace được chia thành nhiều **hash slot**, mỗi shard chịu trách nhiệm 1 nhóm slot.
+- Mỗi shard = 1 primary + 0–5 replicas → **sharding + HA (Multi-AZ + auto-failover)**.
+- Scale-out bằng cách **thêm shard**, Redis tự redistribute hash slots.
+```
