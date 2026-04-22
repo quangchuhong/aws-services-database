@@ -66,3 +66,62 @@ PRODUCT#<sku>      | META               | PRODUCT    | name, price, ...
 App:
 - Đọc mọi thứ liên quan user: PK = USER#<user_id>, query range SK.
 - Đọc orders của user: PK + SK begins_with("ORDER#").
+```
+**Ưu điểm:**
+
+  - Giảm số bảng.
+  - Tối ưu query theo access pattern chuẩn.
+
+### 3.2. Mô hình 2 – Bảng chuyên cho 1 loại entity (Multi-Table)
+
+**Use case:** Đơn giản, mỗi loại entity 1 bảng: USERS, ORDERS, PRODUCTS, …
+```text
+Table USERS
+- PK: user_id
+
+Table ORDERS
+- PK: order_id
+- GSI: user_id + order_date (để query đơn theo user)
+
+Table PRODUCTS
+- PK: product_id
+
+```
+**Ưu điểm:**
+
+  - Dễ hiểu với người quen RDBMS.
+  - Phù hợp hệ thống đơn giản, ít access pattern phức tạp.
+
+### 3.3. Mô hình 3 – DynamoDB + DAX (DynamoDB Accelerator)
+
+**Use case:** Read-heavy, muốn latency micro‑second & giảm chi phí read.
+
+```text
+       +------------------------+
+       |      Clients           |
+       +------------+-----------+
+                    |
+                    v
+             +--------------+
+             | Application  |
+             +------+-------+
+                    |
+            DAX client SDK
+                    |
+         +----------+----------+
+         |  DAX Cluster        |  (in-memory cache, API-compatible)
+         +----------+----------+
+                    |
+                    v
+             +--------------+
+             | DynamoDB     |
+             | Table(s)     |
+             +--------------+
+
+Flow:
+- App gọi DAX endpoint thay vì DynamoDB trực tiếp.
+- DAX:
+  - Cache get item / query.
+  - Miss → đọc DynamoDB → cache → trả kết quả.
+
+```
