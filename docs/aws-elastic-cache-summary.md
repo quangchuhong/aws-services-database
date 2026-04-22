@@ -57,3 +57,41 @@ Use case điển hình:
  2. App ghi: ghi DB, tùy logic update/invalid cache.
 ```
 
+### 2.2. Mô hình 2 – Redis Primary + Replicas (Read Scaling + HA trong 1 Region)
+
+**Use case:** Cache/read store lớn, cần HA & scale đọc, phía sau vẫn có RDS/Aurora làm DB chính.
+
+```text
+                   +----------------------+
+                   |     Application      |
+                   +----------+-----------+
+                              |
+                  +-----------+-----------+
+                  |                       |
+                  v                       v
+          (Đọc/ghi cache)         (Đọc/ghi DB chính)
+                  |                       |
+        +---------+---------+     +--------------------+
+        | Redis Primary    |     |  RDS / Aurora DB   |
+        | (Read/Write)     |     |  (nguồn dữ liệu    |
+        +----+-------------+     |   chính / persis)  |
+             |                   +--------------------+
+    Replication (Multi-AZ)
+             |
+     +-------+--------+
+     | Redis Replica1 |
+     | (Read-only)    |
+     +-------+--------+
+             |
+     +-------+--------+
+     | Redis Replica2 |
+     | (Read-only)    |
+     +----------------+
+
+Gợi ý luồng:
+1. App GHI:
+   - Ghi vào DB chính (RDS/Aurora).
+   - Tùy logic: update/invalid cache trên Redis primary.
+2. App ĐỌC:
+   - Đọc từ Redis (primary/replicas qua reader endpoint).
+   - Nếu cache miss → đọc DB → ghi cache.
