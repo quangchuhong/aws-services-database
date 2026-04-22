@@ -267,3 +267,27 @@ Region A (us-east-1)              Region B (eu-west-1)
   - Đồng bộ dữ liệu sang:
     - S3, Elasticsearch/OpenSearch, RDS, Redshift.
   - Là nền cho DynamoDB Global Tables.
+---
+
+## 8. DynamoDB Accelerator (DAX)
+
+- DAX: in-memory cache được thiết kế riêng cho DynamoDB.
+- API-compatible: app chỉ đổi endpoint (DAX endpoint thay DynamoDB).
+- Tính năng:
+  - Micro‑second read latency.
+  - Multi‑AZ cluster, replication.
+- Use case:
+  - Read-heavy, nhiều GetItem/Query lặp lại.
+  - Muốn giảm RCU & latency mà không thay đổi logic cache nhiều.
+
+**DAX vs ElastiCache:**
+
+
+
+| Tiêu chí              | DAX                                          | ElastiCache (Redis/Memcached)                          |
+|-----------------------|----------------------------------------------|--------------------------------------------------------|
+| Tích hợp với DynamoDB | **Rất chặt** – API-compatible với DynamoDB   | Không; bạn phải tự thiết kế key + logic cache         |
+| Cách dùng             | Đổi endpoint (DynamoDB → DAX) + dùng DAX client SDK | Dùng như cache tổng quát phía trước DB/API bất kỳ |
+| Use case chính        | Tăng tốc DynamoDB (GetItem/Query)           | Cache cho RDS, DynamoDB, HTTP API, session, leaderboard… |
+| Logic cache           | Ít phải tự code; DAX xử lý nhiều chi tiết   | Tự implement cache-aside / write-through / write-back  |
+| Data model            | Theo DynamoDB (item/document)               | Key–value, data structures Redis (list, set, hash…)   |
