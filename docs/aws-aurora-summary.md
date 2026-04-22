@@ -806,3 +806,68 @@ LIMIT 20;
 
 - rds.force_ssl = 1
   - Ép tất cả session dùng SSL.
+    
+
+### 8.3. Aurora – Cluster vs Instance Parameter Group
+
+- **Aurora Cluster Parameter Group:**
+  - Tham số áp dụng cho toàn cluster (ví dụ: logical replication, some engine settings).
+**Aurora DB Parameter Group (Instance):**
+  - Tham số áp dụng cho từng instance (writer/reader):
+    - max_connections, work_mem, logging, SSL, v.v.
+      
+**Best practice:**
+
+  1. Tạo 1 Cluster Parameter Group cho cluster Aurora.
+  2. Tạo 1 (hoặc vài) Instance Parameter Group:
+    - Ví dụ:
+      - aurora-pg-writer-params
+      - aurora-pg-reader-params (nếu muốn khác, nhưng đa số dùng chung).
+  3. Gán đúng:
+    - Cluster → Cluster Parameter Group.
+    - Mỗi instance → Instance Parameter Group tương ứng.
+  4. Khi chỉnh tham số:
+    - Kiểm tra xem cần reboot (apply after reboot) hay dynamic (apply immediately).
+
+### 8.4. Gợi ý bộ parameter “baseline” cho Aurora
+
+**Aurora MySQL (baseline gợi ý)**
+
+  - Cluster / Instance PG:
+    - slow_query_log = 1
+    - long_query_time = 1
+    - log_output = FILE
+    - require_secure_transport = ON
+  - Tuỳ app:
+    - max_connections theo connection pool.
+      
+**Aurora PostgreSQL (baseline gợi ý)**
+
+  - Instance PG:
+    - log_min_duration_statement = 1000
+    - log_connections = on
+    - log_disconnections = on
+    - shared_preload_libraries = 'pg_stat_statements'
+    - rds.force_ssl = 1
+  - Sau đó bật extension pg_stat_statements trong DB.
+    
+_Bạn có thể tạo file riêng examples/aurora-params-baseline.md để lưu lại các PG mẫu cho MySQL/PG, và link từ README này._
+
+---
+
+### 9. Migration lên Aurora
+
+Các đường đi phổ biến:
+
+  - MySQL RDS / MySQL on‑prem → Aurora MySQL
+  - PostgreSQL RDS / on‑prem → Aurora PostgreSQL
+  - Oracle / SQL Server → Aurora MySQL/PG:
+    - Dùng SCT + DMS giống RDS.
+      
+Chiến lược tiêu chuẩn:
+
+  1. Chuẩn bị schema (convert nếu heterogenous).
+  2. Dùng DMS Full load + CDC.
+  3. Cutover với downtime thấp.
+---
+
