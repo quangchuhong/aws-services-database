@@ -56,3 +56,4 @@ Use case điển hình:
  1. App đọc: Cache → (miss) → DB → ghi Cache.
  2. App ghi: ghi DB, tùy logic update/invalid cache.
 ```
+
