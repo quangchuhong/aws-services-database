@@ -234,3 +234,30 @@ Luồng điển hình:
   - Cần data structures phức tạp (list, set, sorted set, hash, stream…).
   - Cần persistence, replication, Multi-AZ, backup & restore.
   - Dùng cho session store, leaderboard, counter, pub/sub, queue nhẹ, cache nâng cao.
+---
+
+## 4. Scaling ElastiCache
+
+### 4.1. Scaling Up (Vertical)
+
+- Đổi node type:
+       - Ví dụ: cache.t3.small → cache.m6g.large.
+- Tăng CPU, RAM, network → xử lý nhiều key/second hơn.
+  
+### 4.2. Scaling Out (Horizontal)
+
+- Memcached:
+
+       - Thêm node → client-side sharding (phân key theo hash).
+       - Chú ý: thay đổi số node ⇒ phân bố key thay đổi ⇒ tỉ lệ cache miss tăng sau scale.
+- Redis (cluster mode disabled):
+
+  - Thêm replica:
+    - Primary: read/write.
+    - Replicas: read-only.
+  - Không shard tự động; toàn bộ keyspace trên 1 primary.
+- Redis (cluster mode enabled):
+
+  - Thêm shard (primary + replicas):
+    - Cluster chia lại keyspace (hash slot) giữa các shard.
+  - Scale-out gần như tuyến tính về dung lượng/throughput.
