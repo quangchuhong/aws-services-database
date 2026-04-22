@@ -114,7 +114,7 @@ Bạn tập trung vào:
 
 ### 2.3. Mô hình 3 – Aurora Global Database (Multi-Region, Global Read + DR)
 
-Use case: Ứng dụng global, user ở nhiều châu lục; cần đọc nhanh & DR cấp Region.
+**Use case:** Ứng dụng global, user ở nhiều châu lục; cần đọc nhanh & DR cấp Region.
 
 - 1 Primary Region:
   - 1 Writer + (optional) Readers.
@@ -139,5 +139,32 @@ Region 1 (Primary)                     Region 2 (Secondary)
 
 Users gần Region 1  --> đọc/ghi Region 1
 Users gần Region 2  --> đọc Region 2 (latency thấp)
+
+```
+### 2.4. Mô hình 4 – Aurora Serverless (v1/v2) – On-Demand Auto-Scaling
+
+**Use case:** Workload không ổn định, dev/test, POC, hoặc app ít dùng.
+
+- Aurora Serverless v1:
+  - Aurora MySQL/PG với ACU (Aurora Capacity Units) auto scale.
+  - Không phải chọn instance size cố định.
+  - Có thể pause khi idle (v1).
+  - Không có read replicas riêng, không public IP.
+- Aurora Serverless v2:
+  - Scale mượt hơn, granularity nhỏ, dùng cho production tốt hơn.
+```text
+        +----------------------+
+        |     Application      |
+        +----------+-----------+
+                   |
+                   v
+          +----------------------+
+          | Aurora Serverless    |
+          | (Auto-scale ACU)     |
+          +----------+-----------+
+                     |
+                     v
+          Shared Storage Layer
+            + Backups to S3
 
 ```
