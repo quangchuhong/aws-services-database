@@ -376,3 +376,66 @@ Workflow đơn giản:
 | **Auto scaling compute (Serverless)** | Workload khó đoán, không 24/7, dev/test, POC, batch theo giờ; muốn trả tiền đúng theo usage | Workload cực nhạy về latency, traffic luôn cao và ổn định, cần full control instance size        | Dùng **Aurora Serverless v1/v2**; cấu hình **min/max ACU**, Aurora tự scale compute trong khoảng  |
 | **Auto scaling Readers (Replicas)**   | Prod read-heavy, traffic đọc thay đổi theo giờ/ngày; cần tăng/giảm **số reader** linh hoạt | Hầu như không có read load, hoặc read ổn định và thấp, không cần thêm/bớt reader theo thời gian  | Dùng với **Aurora provisioned**; cấu hình Aurora Auto Scaling cho **reader endpoint**             |
 | **Auto scaling Storage** (mặc định)  | Mọi Aurora cluster: dữ liệu tăng dần, không muốn quản thủ công dung lượng từng volume      | Không có – đây là cơ chế built‑in, luôn bật, không tắt được                                       | Storage Aurora tự grow đến **64 TB**, bạn chỉ cần theo dõi chi phí **GB/tháng**                   |
+
+---
+
+## 4. Aurora Instance Types & Terraform Examples
+
+### 4.1. DB Instance Type thường dùng cho Aurora
+
+Aurora dùng các **instance type chuyên cho RDS/Aurora**, phổ biến:
+
+- **Tổng quát (burstable, nhỏ/tiết kiệm)**  
+  - `db.t3.small`, `db.t3.medium`  
+  - `db.t4g.small`, `db.t4g.medium` (Graviton, rẻ & hiệu năng tốt)  
+  → Dùng cho dev/test, POC, workload nhẹ.
+
+- **Tổng quát (production, balanced)**  
+  - `db.m5.large`, `db.m5.xlarge`, `db.m5.2xlarge`  
+  - `db.m6g.large`, `db.m6g.xlarge`, `db.m6g.2xlarge` (Graviton – khuyến nghị mới)  
+  → Dùng cho hầu hết workload production web/app.
+
+- **Memory-optimized (nhiều RAM, query nặng, nhiều connection)**  
+  - `db.r5.large`, `db.r5.xlarge`, `db.r5.2xlarge`  
+  - `db.r6g.large`, `db.r6g.xlarge`, `db.r6g.2xlarge`  
+  → Dùng cho report nặng, analytic OLAP nhẹ, nhiều session.
+
+> Tip:  
+> - Mới triển khai production: **bắt đầu từ `db.m6g.large` hoặc `db.r6g.large`**, rồi scale up/down dựa trên metrics.  
+> - Dev/Test: `db.t3.small` / `db.t4g.small`.
+
+---
+
+### 4.2. Terraform – Aurora Serverless v1 (MySQL/PG)
+
+Aurora Serverless v1 tạo bằng `aws_rds_cluster` với `engine_mode = "serverless"` + `scaling_configuration`.
+
+Ví dụ: Aurora Serverless v1 – MySQL
+
+```hcl
+resource "aws_rds_cluster" "aurora_mysql_serverless_v1" {
+  cluster_identifier      = "aurora-mysql-serverless-v1"
+  engine                  = "aurora-mysql"
+  engine_mode             = "serverless"
+  engine_version          = "5.7.mysql_aurora.2.07.2" # kiểm tra version hỗ trợ serverless v1
+  database_name           = "myappdb"
+  master_username         = "masteruser"
+  master_password         = "StrongPassw0rd!"
+  backup_retention_period = 7
+  preferred_backup_window = "02:00-03:00"
+  storage_encrypted       = true
+  kms_key_id              = aws_kms_key.rds.arn
+  db_subnet_group_name    = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+
+  scaling_configuration {
+    auto_pause               = true
+    min_capacity             = 2   # ACUs
+    max_capacity             = 64  # ACUs
+    seconds_until_auto_pause = 300 # 5 phút idle thì pause
+  }
+
+  tags = {
+    Name = "aurora-mysql-serverless-v1"
+  }
+}
