@@ -285,3 +285,53 @@ Aurora có 3 cơ chế “tự co giãn” khác nhau:
 (ACU giảm xuống min)          (ACU tăng tới max)
 
 ```
+
+Ý chính:
+
+- Bạn định nghĩa range capacity.
+- Aurora tự scale bên trong range theo nhu cầu.
+
+### 10.2. Auto Scaling Aurora Replicas (Reader Auto Scaling)
+
+**Áp dụng cho:** Aurora provisioned (không phải Serverless).
+
+- Bạn có 1 Writer + một vài Readers ban đầu.
+- Cấu hình Aurora Auto Scaling (thường qua:
+  - Application Auto Scaling + policy CloudWatch).
+- Khi CPU / connections / replica lag trên readers cao:
+  - Tự động thêm Aurora Replicas (tối đa N – mặc định upper limit bạn đặt, không vượt quá 15).
+- Khi tải thấp:
+  - Tự động giảm số replicas (scale‑in).
+    
+**Workflow đơn giản:**
+```text
+                 +-----------------------+
+                 |   Application (Read)  |
+                 +-----------+-----------+
+                             |
+                  Reader endpoint (cluster)
+                             |
+      +----------------------+------------------------+
+      |                      |                        |
+      v                      v                        v
++-------------+      +-------------+         +-------------+
+| Reader 1    |      | Reader 2    |   ...   | Reader N    |
++------+------+      +------+------+         +------+------+
+       \                    |                       /
+        \                   |                      /
+         \                  v                     /
+          +--------------------------------------+
+                          |
+                          v
+              Shared Storage (Aurora)
+
+Aurora Auto Scaling:
+- Theo dõi metrics (CPU, conn, lag) của reader pool.
+- Khi vượt threshold: ADD Reader (tới max).
+- Khi dưới threshold: REMOVE Reader (tới min).
+
+```
+Ý chính:
+
+- Reader endpoint phân tải đọc giữa các replicas.
+- Auto Scaling điều chỉnh số readers trong khoảng min–max bạn định nghĩa.
