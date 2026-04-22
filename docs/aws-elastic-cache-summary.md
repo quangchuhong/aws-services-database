@@ -205,3 +205,32 @@ Luồng điển hình:
 | Cache/store rất lớn, throughput rất cao, cần phân tán keyspace (sharding)| **2.3 – Redis Cluster Mode Enabled**        | Keyspace chia thành nhiều shard, mỗi shard = 1 primary + replicas; scale-out gần như tuyến tính |
 | Hệ thống web/microservices cần session store chung, web stateless        | **2.4 – Redis Session Store**               | Session, cart, token lưu ở Redis; dễ scale web server ngang                                   |
 
+---
+
+## 3. So sánh Memcached vs Redis (Cluster / Non-Cluster)
+
+### 3.1. Bảng so sánh
+
+| Feature                          | Memcached                        | Redis (cluster mode disabled)                     | Redis (cluster mode enabled)                        |
+|----------------------------------|----------------------------------|---------------------------------------------------|-----------------------------------------------------|
+| Persistence (lưu bền)           | Không                            | Có (RDB/AOF, snapshot)                            | Có (RDB/AOF, snapshot)                              |
+| Data types                       | Đơn giản (key–value string)     | Phức tạp (string, list, set, sorted set, hash…)  | Phức tạp (string, list, set, sorted set, hash…)    |
+| Partitioning / sharding         | Có (client-side)                | Không (1 primary cho toàn keyspace)              | Có (cluster tự chia shard/keyspace)                |
+| Encryption                      | Không                            | Có (in-transit & at-rest, nếu bật)               | Có (in-transit & at-rest, nếu bật)                 |
+| High availability (replication) | Không                            | Có: primary–replica, Multi-AZ                     | Có: primary–replica per shard, Multi-AZ            |
+| Multi-AZ                        | Chỉ “đặt node ở nhiều AZ” (không failover) | Có auto-failover, dùng replicas                 | Có auto-failover per shard, dùng replicas          |
+| Scaling                         | Up (node type), Out (thêm node) | Up (node type), Out (thêm replica đọc)           | Up (node type), Out (thêm shard)                   |
+| Multithreaded                   | Có                               | Không (single-thread event loop per instance)     | Không (multiple single-threaded shard processes)   |
+| Backup & restore                | Không                            | Có – snapshot tự động & manual                   | Có – snapshot tự động & manual                     |
+
+### 3.2. Chọn Memcached hay Redis?
+
+- **Memcached**:
+  - Cache đơn giản, key–value, không cần persistence.
+  - Throughput rất cao, multithreaded, dễ scale ngang bằng thêm node.
+  - Không cần replication, backup, data structures phức tạp.
+
+- **Redis**:
+  - Cần data structures phức tạp (list, set, sorted set, hash, stream…).
+  - Cần persistence, replication, Multi-AZ, backup & restore.
+  - Dùng cho session store, leaderboard, counter, pub/sub, queue nhẹ, cache nâng cao.
