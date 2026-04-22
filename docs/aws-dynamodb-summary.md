@@ -66,11 +66,52 @@ PRODUCT#<sku>      | META               | PRODUCT    | name, price, ...
 App:
 - Đọc mọi thứ liên quan user: PK = USER#<user_id>, query range SK.
 - Đọc orders của user: PK + SK begins_with("ORDER#").
+
+#### Giải thích thêm: 3.1. Mô hình 1 – Single Table Design cho Microservices
+
+**Ý tưởng chính:**
+
+- Chỉ dùng **một bảng DynamoDB duy nhất** (ví dụ: `app_main`).
+- Trong bảng đó chứa **nhiều loại item khác nhau**:
+  - USER, ORDER, SESSION, PRODUCT, v.v.
+- Phân biệt từng loại item bằng:
+  - Cách đặt **Partition key (PK)** / **Sort key (SK)** (dùng prefix), và/hoặc
+  - Một field `type`.
+
+**Ví dụ bảng `app_main` (một phần dữ liệu):**
+
+```text
+PK                | SK                 | type     | Các field khác
+------------------+--------------------+----------+-------------------------
+USER#u1           | PROFILE            | USER     | name, email, ...
+USER#u1           | ORDER#o100         | ORDER    | amount, status, ...
+USER#u1           | ORDER#o101         | ORDER    | amount, status, ...
+USER#u1           | SESSION#sabc       | SESSION  | ip, expires_at, ...
+USER#u2           | PROFILE            | USER     | name, email, ...
+PRODUCT#p1        | META               | PRODUCT  | name, price, ...
+PRODUCT#p2        | META               | PRODUCT  | name, price, ...
+
 ```
+
 **Ưu điểm:**
 
   - Giảm số bảng.
   - Tối ưu query theo access pattern chuẩn.
+
+**Access pattern ví dụ:**
+
+- Lấy profile + tất cả order + session của user u1:
+  - Query với PK = "USER#u1" → trả về mọi item của user đó (PROFILE, ORDER#, SESSION#) trong 1 lần query.
+- Lấy toàn bộ order của user u1:
+  - Query PK = "USER#u1" + SK begins_with("ORDER#").
+    
+**So với RDBMS:**
+
+- SQL truyền thống thường: users, orders, sessions, products là 4 bảng khác nhau.
+- DynamoDB single table design: gom chúng vào 1 table, tận dụng PK/SK để:
+  - Giảm số query.
+  - Tránh join phức tạp (DynamoDB không hỗ trợ join như SQL).
+    
 
 ### 3.2. Mô hình 2 – Bảng chuyên cho 1 loại entity (Multi-Table)
 
