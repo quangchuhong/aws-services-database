@@ -261,3 +261,108 @@ Luồng điển hình:
   - Thêm shard (primary + replicas):
     - Cluster chia lại keyspace (hash slot) giữa các shard.
   - Scale-out gần như tuyến tính về dung lượng/throughput.
+
+---
+
+## 5. Security Best Practices (ElastiCache)
+
+- Network:
+
+       - Đặt trong private subnet.
+       - SG chỉ mở port (6379 Redis, 11211 Memcached) cho:
+              - App servers / ECS / Lambda trong VPC.
+       - Không mở 0.0.0.0/0.
+- Encryption:
+
+       - Redis:
+              - Hỗ trợ in-transit (TLS) và at-rest (disk) nếu bật khi tạo.
+       - Memcached:
+              - Không hỗ trợ encryption (theo tài liệu bạn đang học).
+       - Dùng TLS nếu data nhạy cảm.
+- Authentication:
+
+       - Redis:
+              - Có AUTH password (Redis AUTH).
+              - Với ElastiCache Redis mới: có thể dùng Redis AUTH token.
+       - Memcached:
+              - Không có auth built-in; rely on VPC & SG.
+       - IAM & audit:
+
+              - Dùng IAM để kiểm soát ai được tạo/sửa/xóa ElastiCache.
+              - CloudTrail để audit API calls.
+---
+
+## 6. Monitoring & Troubleshooting
+
+- CloudWatch Metrics:
+       - CPUUtilization, FreeableMemory, CurrConnections, NetworkBytesIn/Out, Evictions, GetHits/GetMisses, CacheHitRate…
+- Log/Stats:
+       - Memcached: stats qua telnet hoặc client.
+       - Redis: INFO command, slowlog (tùy config).
+- Các lỗi thường gặp:
+       - Hit ratio thấp:
+              - TTL quá ngắn, cache key không hợp lý.
+              - Không cache đúng nơi (ít lặp).
+- Eviction nhiều:
+       - Dung lượng nhỏ hơn working set.
+       - Cần scale up node hoặc thêm node/shard.
+- Connection leak từ app:
+       - Không đóng connection đúng cách trong app (thường với Redis client).
+
+---
+
+## 7. Chi phí (Cost Model – tóm tắt)
+
+- Thành phần chính:
+       - Node-hours (instance type × số node × số giờ).
+       - Data transfer:
+              - Nội bộ VPC thường rất rẻ/miễn phí.
+              - Ra Internet/cross-region tính thêm.
+- Không tính tiền theo GB storage riêng như RDS (cache nằm trong RAM node).
+
+---
+
+## 8. Terraform ví dụ – Redis đơn giản (1 primary, 1 replica)
+```hcl
+resource "aws_elasticache_subnet_group" "redis" {
+  name       = "redis-subnet-group"
+  subnet_ids = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+}
+
+resource "aws_elasticache_replication_group" "redis_rg" {
+  replication_group_id          = "my-redis-rg"
+  replication_group_description = "Redis primary + 1 replica"
+  engine                        = "redis"
+  engine_version                = "7.0"
+  node_type                     = "cache.m6g.large"
+  number_cache_clusters         = 2  # 1 primary + 1 replica
+  automatic_failover_enabled    = true
+  multi_az_enabled              = true
+
+  subnet_group_name             = aws_elasticache_subnet_group.redis.name
+  security_group_ids            = [aws_security_group.redis.id]
+
+  at_rest_encryption_enabled    = true
+  transit_encryption_enabled    = true
+
+  parameter_group_name          = "default.redis7"
+
+  tags = {
+    Name = "my-redis-rg"
+  }
+}
+
+```
+---
+
+## 9. Tóm tắt chọn nhanh
+
+| Câu hỏi / Nhu cầu chính                               | Gợi ý sử dụng                                                         |
+|-------------------------------------------------------|------------------------------------------------------------------------|
+| Cần cache đơn giản, key–value, throughput rất cao     | **Memcached** (nếu không cần persistence/replication/security cao)    |
+| Cần session store, leaderboard, counter, pub/sub      | **Redis (cluster mode disabled)** – primary + replicas, không sharding|
+| Cần cache/store rất lớn, cần sharding tự động         | **Redis (cluster mode enabled)** – nhiều shard + replicas             |
+| Cần HA, Multi-AZ, auto-failover cho cache             | **Redis** (primary + replicas, Multi-AZ, automatic failover)          |
+| Muốn giảm tải & latency cho RDS/Aurora/DynamoDB       | **Redis hoặc Memcached** với mô hình cache-aside                      |
+| Dữ liệu cache chỉ tạm thời, không cần lưu bền         | **Memcached** hoặc Redis không bật persistence                        |
+| Dữ liệu cache quan trọng hơn, muốn có snapshot/backup | **Redis** (vì hỗ trợ persistence + snapshot + restore)                |
