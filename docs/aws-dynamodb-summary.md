@@ -350,3 +350,81 @@ _**DynamoDB Streams = “change log”** của bảng DynamoDB, giữ tối đa 
 | Cần query linh hoạt, ad‑hoc, join nhiều bảng                    | **RDS / Aurora**                                                      |
 | Pattern truy cập rõ ràng, lặp đi lặp lại, ưu tiên scale & chi phí| **DynamoDB** (thiết kế theo access pattern trước)                     |
 
+
+---
+
+## 12. Monitoring & Troubleshooting DynamoDB
+
+### 12.1. CloudWatch Metrics quan trọng
+
+DynamoDB tự gửi nhiều metric lên **CloudWatch**, theo từng bảng:
+
+| Metric                    | Ý nghĩa chính                                               | Dùng để làm gì                                |
+|---------------------------|-------------------------------------------------------------|-----------------------------------------------|
+| `ConsumedReadCapacityUnits`  | Số RCU đã dùng                                           | Xem có sát/ngưỡng Provisioned RCU không       |
+| `ConsumedWriteCapacityUnits` | Số WCU đã dùng                                           | Xem có sát/ngưỡng Provisioned WCU không       |
+| `ReadThrottleEvents`        | Số lần bị throttle (read)                                 | Nếu > 0: thiếu RCU hoặc hot partition         |
+| `WriteThrottleEvents`       | Số lần bị throttle (write)                                | Nếu > 0: thiếu WCU hoặc hot partition         |
+| `ThrottledRequests`         | Tổng request bị throttle (read + write)                  | Chỉ báo chung về throttle                     |
+| `UserErrors`                | Lỗi do client (ValidationException, ConditionalCheckFailed...) | Debug lỗi app                          |
+| `SystemErrors`              | Lỗi phía service DynamoDB (hiếm)                         | Theo dõi sự cố vùng                            |
+| `SuccessfulRequestLatency`  | Latency request (p50/p90/p99)                             | Theo dõi độ trễ                                |
+| `ReturnedItemCount`         | Số item trả về mỗi request                                | Phân tích pattern query                       |
+
+**Best practice:**
+
+- Tạo **CloudWatch Alarms** cho:
+  - `ReadThrottleEvents`, `WriteThrottleEvents` > 0.
+  - `ConsumedReadCapacityUnits` / `ConsumedWriteCapacityUnits` gần bằng **Provisioned** (nếu dùng Provisioned).
+- Nếu dùng **Auto Scaling**:
+  - Theo dõi metric **TargetTrackingScaling** gắn với RCU/WCU.
+
+---
+
+### 12.2. CloudWatch Alarms & Logs
+
+- **Alarms**:
+  - Cảnh báo qua SNS (email/Slack) khi:
+    - Có throttle.
+    - Latency tăng (p90/p99 vượt ngưỡng).
+- **Logs**:
+  - DynamoDB không log query chi tiết như RDS, nhưng:
+    - App có thể log request quan trọng (PK/SK, điều kiện filter).
+    - Dùng CloudWatch Logs / X-Ray để trace request end‑to‑end (API Gateway + Lambda + DynamoDB).
+
+---
+
+### 12.3. Troubleshooting thường gặp
+
+1. **Bị throttle (Read/WriteThrottleEvents > 0)**  
+   - Nếu Provisioned:
+     - Tăng RCU/WCU / bật Auto Scaling.
+   - Cả Provisioned & On‑Demand:
+     - Xem có **hot partition** không (rất nhiều request dồn vào 1 partition key).
+     - Thiết kế lại partition key cho phân tán hơn.
+
+2. **Latency cao (`SuccessfulRequestLatency` tăng)**  
+   - Kiểm tra:
+     - Có dùng `Scan` nhiều không (scan toàn bảng).
+     - Có filter nhiều sau khi đọc (FilterExpression) → tốt nhất điều kiện phải bám vào PK/SK, GSI.
+   - Tối ưu access pattern, dùng **Query** thay cho **Scan**.
+
+3. **Chi phí tăng bất thường**  
+   - Check:
+     - Số request read/write (On‑Demand) hoặc Consumed RCU/WCU.
+     - Có job/batch/scan mới không.
+   - Giải pháp:
+     - Thêm GSI để tránh scan.
+     - Điều chỉnh TTL để dọn dữ liệu cũ.
+
+---
+
+### 12.4. Kết hợp X-Ray / Lambda / API Gateway
+
+Nếu dùng DynamoDB từ **Lambda / API Gateway**:
+
+- Bật **AWS X-Ray**:
+  - Tracing request từ API → Lambda → DynamoDB.
+  - Xem chỗ nào tốn thời gian.
+- Bật **enhanced metrics** & logs cho Lambda:
+  - Từ log Lambda, bạn thấy pattern truy vấn nào bị chậm hoặc lỗi điều kiện.
