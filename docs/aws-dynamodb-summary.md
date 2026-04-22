@@ -267,6 +267,10 @@ Region A (us-east-1)              Region B (eu-west-1)
   - Đồng bộ dữ liệu sang:
     - S3, Elasticsearch/OpenSearch, RDS, Redshift.
   - Là nền cho DynamoDB Global Tables.
+
+
+_**DynamoDB Streams = “change log”** của bảng DynamoDB, giữ tối đa 24h, cho phép bạn bắt mọi INSERT/UPDATE/DELETE để:_
+
 ---
 
 ## 8. DynamoDB Accelerator (DAX)
