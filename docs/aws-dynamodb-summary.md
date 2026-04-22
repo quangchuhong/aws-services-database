@@ -224,3 +224,13 @@ Region A (us-east-1)              Region B (eu-west-1)
 - Trả tiền theo số request thực (read/write).
 - Dùng khi:
   - Traffic khó đoán, burst thất thường.
+
+---
+
+## 5. Time to Live (TTL) & Dọn dẹp dữ liệu
+
+- TTL = attribute dạng timestamp (epoch) trên item (ví dụ expires_at).
+- Sau thời điểm TTL, DynamoDB tự động xóa item (background).
+- Thường dùng cho:
+  - Session, token, cache, log cũ, data tạm.
+- Nếu bật DynamoDB Streams, item bị xóa bởi TTL có thể xuất hiện trong stream.
