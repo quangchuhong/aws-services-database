@@ -193,3 +193,34 @@ Region A (us-east-1)              Region B (eu-west-1)
 | Hệ thống đơn giản, gần giống RDBMS (1 entity = 1 bảng)           | **3.2 – Multi-Table**            | Dễ hiểu, dễ migrate từ SQL; nhưng sẽ hạn chế nếu access pattern phức tạp về sau           |
 | Read-heavy, latency cần rất thấp, chi phí read cao                | **3.3 – DynamoDB + DAX**         | DAX cache cho các GetItem/Query lặp lại, giảm RCU & giảm độ trễ                           |
 | Ứng dụng global, multi‑Region active‑active                       | **3.4 – DynamoDB Global Tables** | Mỗi Region có bảng replica, đọc/ghi local; phù hợp game, API global, fintech đa khu vực  |
+
+---
+
+## 4. Capacity & Pricing: Provisioned vs On-Demand
+
+### 4.1. RCU & WCU
+
+- RCU (Read Capacity Unit):
+  - 1 RCU = 1 strongly consistent read/giây cho item 4 KB hoặc 2 eventually consistent reads/giây (4 KB).
+- WCU (Write Capacity Unit):
+ - 1 WCU = 1 write/giây cho item 1 KB.
+
+### 4.2. Provisioned Capacity
+
+- Bạn đặt sẵn:
+  - Read capacity (RCU).
+  - Write capacity (WCU).
+- Có thể bật Auto Scaling:
+  - Tự tăng/giảm RCU/WCU theo CloudWatch.
+    
+**Dùng khi:**
+
+- Biết tương đối ổn định workload.
+- Muốn tối ưu chi phí (so với On‑Demand khi traffic cao).
+
+### 4.3. On-Demand Capacity
+
+- Không set RCU/WCU.
+- Trả tiền theo số request thực (read/write).
+- Dùng khi:
+  - Traffic khó đoán, burst thất thường.
