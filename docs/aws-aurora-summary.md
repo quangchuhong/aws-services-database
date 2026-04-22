@@ -674,5 +674,36 @@ aws rds start-export-task \
 
 ```
 
+### 6. Security Best Practices (Aurora)
+
+Giống RDS, nhưng nhớ là Aurora luôn **chạy trong cluster**:
+
+- **Network:**
+  - Private subnet, không public.
+  - SG chỉ mở cho app/bastion SG.
+- **Encryption:**
+  - At rest: bật KMS khi tạo cluster.
+  - In transit: SSL/TLS, cấu hình client dùng SSL; ép SSL qua parameter (rds.force_ssl cho PG).
+- **User & quyền:**
+  - Không dùng master user cho app.
+  - Tạo user riêng từng app/service; phân quyền theo schema.
+- **Secrets Manager:**
+  - Lưu & auto‑rotate password.
+- **Audit & IAM:**
+  - CloudTrail cho API Aurora/RDS.
+  - IAM để kiểm soát ai được tạo/modify/delete cluster & snapshot.
+
 ---
 
+### 7. Monitoring & Tuning cho Aurora
+
+- **Performance Insights:**
+  - Bật cho writer/reader.
+  - Xem DB load, top SQL, waits.
+- **CloudWatch:**
+  - CPU, connections, disk queue, replica lag, freeable memory.
+- **Query tuning:**
+  - Aurora MySQL:
+    - slow query log, performance_schema, sys schema.
+- Aurora PostgreSQL:
+  - pg_stat_statements, log_min_duration_statement, autovacuum tuning.
