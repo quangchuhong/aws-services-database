@@ -707,3 +707,102 @@ Giống RDS, nhưng nhớ là Aurora luôn **chạy trong cluster**:
     - slow query log, performance_schema, sys schema.
 - Aurora PostgreSQL:
   - pg_stat_statements, log_min_duration_statement, autovacuum tuning.
+---
+
+## 8. Parameter quan trọng cho Aurora (MySQL / PostgreSQL)
+
+Aurora cũng dùng **Parameter Group**, nhưng tách 2 loại:
+
+- **Cluster Parameter Group**: áp dụng cho **cả cluster** (settings cấp logical DB/engine).
+- **Instance Parameter Group**: áp dụng cho **từng instance** (writer/reader).
+
+Khi chỉnh parameter, luôn tạo **custom parameter group**, không sửa default.
+
+---
+
+### 8.1. Aurora MySQL – Parameter thường dùng
+
+#### 8.1.1. Kết nối & session
+
+*Cluster hoặc Instance Parameter Group (tùy tham số)*
+
+- `max_connections`  
+  - Giới hạn số connection; phải khớp với tổng connection pool app.
+- `wait_timeout`, `interactive_timeout`  
+  - Thời gian idle trước khi đóng connection.
+- `max_allowed_packet`  
+  - Kích thước tối đa 1 gói (dùng cho BLOB/Large result).
+
+#### 8.1.2. InnoDB & memory
+
+(Aurora tự tối ưu nhiều, thường không cần chỉnh nhiều như MySQL on‑prem, nhưng nên biết:)
+
+- `innodb_buffer_pool_size` (đa phần auto, nhưng là thành phần chính cho cache dữ liệu).
+- `innodb_log_file_size`, `innodb_flush_log_at_trx_commit`  
+  - Ảnh hưởng hiệu năng ghi & durability (thường để mặc định nếu không có lý do cụ thể).
+
+#### 8.1.3. Logging & slow query
+
+- `slow_query_log = 1`
+- `long_query_time = 1` (giây – chỉnh theo nhu cầu, ví dụ 0.5–2s)
+- `log_output = FILE`
+
+> Sau khi bật, đọc log trong **RDS Console → Logs & events** hoặc CloudWatch Logs.
+
+#### 8.1.4. SSL/TLS
+
+- `require_secure_transport = ON`  
+  - Ép client dùng SSL khi kết nối.
+
+---
+
+### 8.2. Aurora PostgreSQL – Parameter thường dùng
+
+#### 8.2.1. Kết nối & memory
+
+- `max_connections`  
+  - Đặt theo tổng connection pool app, tránh quá cao gây thiếu RAM.
+- `work_mem`  
+  - Bộ nhớ cho sort/hash mỗi operation; quá thấp → nhiều disk spill; quá cao → OOM khi nhiều session.
+- `maintenance_work_mem`  
+  - Dùng cho VACUUM, CREATE INDEX; đặt cao hơn `work_mem`.
+
+#### 8.2.2. Shared buffers & cache
+
+(Aurora PG cũng auto‑tune nhiều; chỉ nên chỉnh khi hiểu rõ)
+
+- `shared_buffers`  
+  - Thường ~25% RAM ở PG truyền thống; với Aurora PG, AWS đã tối ưu, ít chỉnh tay.
+- `effective_cache_size`  
+  - Gợi ý cho planner về size cache hiệu dụng.
+
+#### 8.2.3. Logging & `pg_stat_statements`
+
+**Instance Parameter Group:**
+
+- `log_min_duration_statement = 1000`  (log query chạy > 1s)
+- `log_connections = on`
+- `log_disconnections = on`
+
+**Bật extension `pg_stat_statements` (Cluster/Instance tùy version):**
+
+- `shared_preload_libraries = 'pg_stat_statements'`
+
+Sau khi restart:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+SELECT query,
+       calls,
+       round(total_time::numeric, 2) AS total_ms,
+       round(mean_time::numeric, 2)  AS mean_ms
+FROM pg_stat_statements
+ORDER BY total_time DESC
+LIMIT 20;
+```
+
+#### 8.2.4. SSL/TLS
+
+- rds.force_ssl = 1
+  - Ép tất cả session dùng SSL.
