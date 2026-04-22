@@ -148,3 +148,50 @@ Luồng gợi ý:
 - Mỗi shard = 1 primary + 0–5 replicas → **sharding + HA (Multi-AZ + auto-failover)**.
 - Scale-out bằng cách **thêm shard**, Redis tự redistribute hash slots.
 ```
+
+### 2.4. Mô hình 4 – Session Store với Redis
+
+**Use case:** Lưu session đăng nhập / giỏ hàng / token… để web server **stateless**, dễ scale ngang.  
+Session **chỉ cần tồn tại tạm thời**, không nhất thiết lưu trong RDS.
+
+```text
+                 Internet
+                    |
+                    v
+           +----------------------+
+           |   Load Balancer     |
+           |      (ALB/NLB)      |
+           +----------+----------+
+                      |
+         +------------+------------+
+         |            |            |
+         v            v            v
+   +-----------+  +-----------+  +-----------+
+   |  Web 1    |  |  Web 2    |  |  Web 3    |
+   | (EC2/ECS) |  | (EC2/ECS) |  | (EC2/ECS) |
+   +-----+-----+  +-----+-----+  +-----+-----+
+         |              |              |
+         +--------------+--------------+
+                        |
+                        v
+                +----------------+
+                |  Redis Cluster |
+                |  Session Store |
+                +----------------+
+
+Luồng điển hình:
+1. User login:
+   - Web node xác thực (có thể gọi DB/User service).
+   - Tạo session ID / token.
+   - Ghi session vào Redis (key = session_id, value = user info, TTL = thời gian session).
+
+2. Request tiếp theo:
+   - Web node nhận cookie / token.
+   - Đọc session từ Redis:
+     - Nếu tìm thấy → user đã login, tiếp tục xử lý.
+     - Nếu không thấy (hết hạn / bị xóa) → yêu cầu login lại.
+
+3. Thêm/bớt web node:
+   - Không ảnh hưởng session, vì tất cả đều dùng chung Redis.
+   - Web servers **stateless**, dễ scale in/out.
+```
