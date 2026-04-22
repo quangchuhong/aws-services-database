@@ -807,6 +807,7 @@ LIMIT 20;
 - rds.force_ssl = 1
   - Ép tất cả session dùng SSL.
     
+---
 
 ### 8.3. Aurora – Cluster vs Instance Parameter Group
 
@@ -828,6 +829,7 @@ LIMIT 20;
     - Mỗi instance → Instance Parameter Group tương ứng.
   4. Khi chỉnh tham số:
     - Kiểm tra xem cần reboot (apply after reboot) hay dynamic (apply immediately).
+---
 
 ### 8.4. Gợi ý bộ parameter “baseline” cho Aurora
 
