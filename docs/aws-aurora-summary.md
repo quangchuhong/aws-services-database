@@ -362,3 +362,17 @@ Workflow đơn giản:
        Aurora tự động allocate thêm storage
 
 ```
+
+Ý chính:
+
+- Storage Aurora là “elastic”, tự co giãn, bạn chỉ trả tiền theo GB thực dùng.
+- Không phải thao tác “modify DB” để tăng allocated storage.
+
+
+### 3.4. Khi nào dùng loại Auto Scaling nào?
+
+| Loại auto scaling                | Nên dùng khi                                                                                 | Không phù hợp khi                                                                                  | Ghi chú chính                                                                                      |
+|----------------------------------|----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| **Auto scaling compute (Serverless)** | Workload khó đoán, không 24/7, dev/test, POC, batch theo giờ; muốn trả tiền đúng theo usage | Workload cực nhạy về latency, traffic luôn cao và ổn định, cần full control instance size        | Dùng **Aurora Serverless v1/v2**; cấu hình **min/max ACU**, Aurora tự scale compute trong khoảng  |
+| **Auto scaling Readers (Replicas)**   | Prod read-heavy, traffic đọc thay đổi theo giờ/ngày; cần tăng/giảm **số reader** linh hoạt | Hầu như không có read load, hoặc read ổn định và thấp, không cần thêm/bớt reader theo thời gian  | Dùng với **Aurora provisioned**; cấu hình Aurora Auto Scaling cho **reader endpoint**             |
+| **Auto scaling Storage** (mặc định)  | Mọi Aurora cluster: dữ liệu tăng dần, không muốn quản thủ công dung lượng từng volume      | Không có – đây là cơ chế built‑in, luôn bật, không tắt được                                       | Storage Aurora tự grow đến **64 TB**, bạn chỉ cần theo dõi chi phí **GB/tháng**                   |
