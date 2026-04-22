@@ -195,3 +195,13 @@ Luồng điển hình:
    - Không ảnh hưởng session, vì tất cả đều dùng chung Redis.
    - Web servers **stateless**, dễ scale in/out.
 ```
+
+### 2.5. Khi nào dùng mô hình nào?
+
+| Bối cảnh / Yêu cầu                                                       | Mô hình gợi ý                               | Ghi chú ngắn                                                                                   |
+|--------------------------------------------------------------------------|---------------------------------------------|-----------------------------------------------------------------------------------------------|
+| Web app đọc nhiều, DB là RDS/Aurora, muốn giảm tải DB & latency         | **2.1 – Cache-aside với RDS/Aurora**        | Pattern cache chuẩn: READ qua cache, miss thì đọc DB rồi ghi cache                            |
+| Cache lớn, cần HA & scale read trong 1 Region (không cần sharding)      | **2.2 – Redis Primary + Replicas**          | Toàn bộ keyspace trên 1 primary, replicas để HA + mở rộng đọc                                 |
+| Cache/store rất lớn, throughput rất cao, cần phân tán keyspace (sharding)| **2.3 – Redis Cluster Mode Enabled**        | Keyspace chia thành nhiều shard, mỗi shard = 1 primary + replicas; scale-out gần như tuyến tính |
+| Hệ thống web/microservices cần session store chung, web stateless        | **2.4 – Redis Session Store**               | Session, cart, token lưu ở Redis; dễ scale web server ngang                                   |
+
