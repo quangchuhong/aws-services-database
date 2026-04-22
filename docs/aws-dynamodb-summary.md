@@ -234,3 +234,36 @@ Region A (us-east-1)              Region B (eu-west-1)
 - Thường dùng cho:
   - Session, token, cache, log cũ, data tạm.
 - Nếu bật DynamoDB Streams, item bị xóa bởi TTL có thể xuất hiện trong stream.
+  
+---
+
+## 6. Secondary Indexes (LSI & GSI)
+
+### 6.1. LSI – Local Secondary Index
+
+- Cùng Partition Key với bảng gốc.
+- Sort key khác.
+- Phải tạo khi tạo bảng, không thêm xóa sau được.
+- Dùng cho:
+  - Query các view khác nhau trên cùng 1 PK.
+    
+### 6.2. GSI – Global Secondary Index
+
+- Có Partition Key (và Sort Key) riêng.
+- Có thể tạo/xóa sau khi bảng đã tồn tại.
+- Dùng cho:
+  - Query theo “chiều” khác, ví dụ:
+    - Bảng chính PK=user_id, GSI PK=email.
+---
+
+## 7. DynamoDB Streams
+
+- Ghi lại chuỗi thay đổi trên bảng:
+  - INSERT, MODIFY, REMOVE.
+- Lưu tối đa 24 giờ.
+- Có thể cấu hình NEW_IMAGE, OLD_IMAGE, v.v.
+- Use case:
+  - Trigger AWS Lambda theo event.
+  - Đồng bộ dữ liệu sang:
+    - S3, Elasticsearch/OpenSearch, RDS, Redshift.
+  - Là nền cho DynamoDB Global Tables.
