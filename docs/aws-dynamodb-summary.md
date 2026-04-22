@@ -125,3 +125,28 @@ Flow:
   - Miss → đọc DynamoDB → cache → trả kết quả.
 
 ```
+### 3.4. Mô hình 4 – DynamoDB Global Tables (Multi-Region Active-Active)
+
+**Use case:** Ứng dụng global, user ở nhiều châu lục, cần multi‑Region active‑active.
+```text
+Region A (us-east-1)              Region B (eu-west-1)
+----------------------            ----------------------
++------------------+              +------------------+
+| Table: users     | <==========> | Table: users     |
+| (replica region) |   Replicate  | (replica region) |
++------------------+   2 chiều    +------------------+
+
+- App ở Region A đọc/ghi bảng users trong Region A.
+- App ở Region B đọc/ghi bảng users trong Region B.
+- DynamoDB Global Tables tự replicate dữ liệu 2 chiều.
+
+```
+
+### 3.5. Khi nào dùng mô hình nào?
+
+| Bối cảnh / Yêu cầu                                                | Mô hình gợi ý                    | Ghi chú ngắn                                                                              |
+|-------------------------------------------------------------------|----------------------------------|-------------------------------------------------------------------------------------------|
+| Ứng dụng mới, nhiều entity liên quan, muốn tối ưu read/query      | **3.1 – Single Table Design**    | Cần đầu tư thiết kế key & access pattern kỹ; đổi mindset từ RDBMS sang “query-first”      |
+| Hệ thống đơn giản, gần giống RDBMS (1 entity = 1 bảng)           | **3.2 – Multi-Table**            | Dễ hiểu, dễ migrate từ SQL; nhưng sẽ hạn chế nếu access pattern phức tạp về sau           |
+| Read-heavy, latency cần rất thấp, chi phí read cao                | **3.3 – DynamoDB + DAX**         | DAX cache cho các GetItem/Query lặp lại, giảm RCU & giảm độ trễ                           |
+| Ứng dụng global, multi‑Region active‑active                       | **3.4 – DynamoDB Global Tables** | Mỗi Region có bảng replica, đọc/ghi local; phù hợp game, API global, fintech đa khu vực  |
