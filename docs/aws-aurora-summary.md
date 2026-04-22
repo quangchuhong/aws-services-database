@@ -439,3 +439,129 @@ resource "aws_rds_cluster" "aurora_mysql_serverless_v1" {
     Name = "aurora-mysql-serverless-v1"
   }
 }
+```
+_Lưu ý: Aurora Serverless v1 không tạo aws_rds_cluster_instance, chỉ có aws_rds_cluster._
+
+
+### 4.3. Terraform – Aurora Serverless v2 (MySQL/PG)
+
+Aurora Serverless v2 dùng engine_mode = "provisioned" nhưng cấu hình scaling_configuration trên từng instance.
+
+Ví dụ: Aurora Serverless v2 – Aurora PostgreSQL
+
+```hcl
+resource "aws_rds_cluster" "aurora_pg_serverless_v2" {
+  cluster_identifier      = "aurora-pg-serverless-v2"
+  engine                  = "aurora-postgresql"
+  engine_version          = "15.3" # kiểm tra version hỗ trợ serverless v2
+  database_name           = "myappdb"
+  master_username         = "masteruser"
+  master_password         = "StrongPassw0rd!"
+  backup_retention_period = 7
+  preferred_backup_window = "02:00-03:00"
+  storage_encrypted       = true
+  kms_key_id              = aws_kms_key.rds.arn
+  db_subnet_group_name    = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+
+  tags = {
+    Name = "aurora-pg-serverless-v2"
+  }
+}
+
+resource "aws_rds_cluster_instance" "aurora_pg_serverless_v2_instance" {
+  count                = 1 # 1 writer; thêm reader bằng tăng count hoặc tạo resource khác với different instance_class
+  identifier           = "aurora-pg-slv2-${count.index}"
+  cluster_identifier   = aws_rds_cluster.aurora_pg_serverless_v2.id
+  engine               = aws_rds_cluster.aurora_pg_serverless_v2.engine
+  engine_version       = aws_rds_cluster.aurora_pg_serverless_v2.engine_version
+  instance_class       = "db.serverless" # kiểu đặc biệt cho serverless v2
+  publicly_accessible  = false
+
+  # cấu hình auto scaling compute cho serverless v2
+  serverlessv2_scaling_configuration {
+    min_capacity = 0.5  # ACUs
+    max_capacity = 8.0  # ACUs
+  }
+
+  tags = {
+    Name = "aurora-pg-serverless-v2-instance-${count.index}"
+  }
+}
+
+```
+
+_Với serverless v2: _ 
+
+- Dùng instance_class = "db.serverless".
+- Dùng block serverlessv2_scaling_configuration trên aws_rds_cluster_instance.
+
+
+### 4.4. Terraform – Aurora Provisioned Cluster (Writer + Readers)
+
+Ví dụ: Aurora MySQL provisioned, 1 writer + 2 readers.
+```hcl
+resource "aws_rds_cluster" "aurora_mysql" {
+  cluster_identifier      = "aurora-mysql-cluster"
+  engine                  = "aurora-mysql"
+  engine_version          = "5.7.mysql_aurora.2.11.2"
+  database_name           = "myappdb"
+  master_username         = "masteruser"
+  master_password         = "StrongPassw0rd!"
+  backup_retention_period = 7
+  preferred_backup_window = "02:00-03:00"
+  storage_encrypted       = true
+  kms_key_id              = aws_kms_key.rds.arn
+  db_subnet_group_name    = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+
+  tags = {
+    Name = "aurora-mysql-cluster"
+  }
+}
+
+# Writer
+resource "aws_rds_cluster_instance" "aurora_mysql_writer" {
+  identifier         = "aurora-mysql-writer-0"
+  cluster_identifier = aws_rds_cluster.aurora_mysql.id
+  engine             = aws_rds_cluster.aurora_mysql.engine
+  engine_version     = aws_rds_cluster.aurora_mysql.engine_version
+  instance_class     = "db.m6g.large"
+  publicly_accessible = false
+
+  tags = {
+    Role = "writer"
+  }
+}
+
+# Reader 1
+resource "aws_rds_cluster_instance" "aurora_mysql_reader_1" {
+  identifier         = "aurora-mysql-reader-1"
+  cluster_identifier = aws_rds_cluster.aurora_mysql.id
+  engine             = aws_rds_cluster.aurora_mysql.engine
+  engine_version     = aws_rds_cluster.aurora_mysql.engine_version
+  instance_class     = "db.m6g.large"
+  publicly_accessible = false
+
+  tags = {
+    Role = "reader"
+  }
+}
+
+# Reader 2
+resource "aws_rds_cluster_instance" "aurora_mysql_reader_2" {
+  identifier         = "aurora-mysql-reader-2"
+  cluster_identifier = aws_rds_cluster.aurora_mysql.id
+  engine             = aws_rds_cluster.aurora_mysql.engine
+  engine_version     = aws_rds_cluster.aurora_mysql.engine_version
+  instance_class     = "db.m6g.large"
+  publicly_accessible = false
+
+  tags = {
+    Role = "reader"
+  }
+}
+
+```
+
+_Thực tế bạn có thể dùng count để tạo nhiều readers hơn, hoặc tách resource nếu muốn gán tag/setting riêng._
