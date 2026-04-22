@@ -111,3 +111,33 @@ Bạn tập trung vào:
           Continuous Backups (S3)
 
 ```
+
+### 2.3. Mô hình 3 – Aurora Global Database (Multi-Region, Global Read + DR)
+
+Use case: Ứng dụng global, user ở nhiều châu lục; cần đọc nhanh & DR cấp Region.
+
+- 1 Primary Region:
+  - 1 Writer + (optional) Readers.
+- 1+ Secondary Regions:
+  - Chỉ chứa Readers (read‑only).
+- Replication:
+  - Fast cross‑Region (dưới 1 giây trong điều kiện lý tưởng – theo AWS).
+- DR:
+  - Có thể promote secondary Region thành primary mới khi Region chính lỗi.
+ 
+```text
+Region 1 (Primary)                     Region 2 (Secondary)
+---------------------                  -----------------------
++-------------------+                  +-------------------+
+| Writer + Readers  |   Async (fast)   | Readers only      |
+| (Read/Write)      |  replication     | (Read-only)       |
++---------+---------+  ----------->    +---------+---------+
+          |                                      |
+          v                                      v
+   Shared Storage 1                       Shared Storage 2
+     (3 AZs)                                 (3 AZs)
+
+Users gần Region 1  --> đọc/ghi Region 1
+Users gần Region 2  --> đọc Region 2 (latency thấp)
+
+```
