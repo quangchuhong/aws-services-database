@@ -873,3 +873,27 @@ Chiến lược tiêu chuẩn:
   3. Cutover với downtime thấp.
 ---
 
+## 10. So sánh nhanh: Aurora vs RDS MySQL/PostgreSQL
+
+Bảng này giúp chọn nhanh giữa **Aurora MySQL/PG** và **RDS MySQL/PG chuẩn**.
+
+| Tiêu chí                           | RDS MySQL/PostgreSQL (standard)                                                            | Aurora MySQL/PostgreSQL                                                                                   |
+|------------------------------------|--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Kiến trúc storage                  | Mỗi instance gắn với **EBS volume riêng**                                                  | **Shared storage layer** phân tán, 6 bản sao trên 3 AZ                                                   |
+| Multi‑AZ                           | Primary + Standby (instance-based Multi‑AZ)                                                | Cluster inherently Multi‑AZ (writer + replicas đọc cùng storage)                                         |
+| Scale read                         | **Read Replicas** (thường tối đa 5 replica / primary)                                     | **Aurora Replicas** (tối đa 15 replica / cluster, lag rất thấp do shared storage)                        |
+| Failover                          | Multi‑AZ: failover sang Standby; Read Replica: manual promote                             | Failover **trong cluster**, chọn 1 replica làm writer, nhanh & hầu như không mất dữ liệu                 |
+| Global / Multi‑Region             | Cross‑Region Read Replicas (MySQL/PG)                                                      | **Aurora Global Database**: multi‑region, replication tối ưu, promote secondary region khi DR            |
+| Backup                             | Automated backups + manual snapshots                                                       | Continuous backup to S3 + snapshots; PITR tương tự nhưng dùng storage layer Aurora                       |
+| Storage scaling                    | Phải **chỉnh allocated storage** (gp2/gp3/io1)                                            | Storage **auto‑scale** đến 64 TB, không cần pre‑allocate                                                 |
+| Hiệu năng (theo AWS)              | Tốt cho phần lớn OLTP, giới hạn bởi single EBS volume                                     | Tối ưu cho high‑throughput/low‑latency; AWS quảng cáo ~3x PG, ~5x MySQL managed (tùy workload)           |
+| Tối ưu read‑heavy                 | Dựa trên Read Replicas + ElastiCache                                                       | Aurora Replicas (nhiều hơn, lag thấp) + ElastiCache nếu cần                                             |
+| Aurora Serverless                 | **Không có** (RDS chuẩn không có serverless compute)                                       | **Có Aurora Serverless v1/v2**: auto‑scaling compute theo ACU                                           |
+| Tính năng engine                  | MySQL/PG thuần, dễ mang script on‑prem lên                                                 | MySQL/PG‑compatible + một số tính năng Aurora riêng (Global DB, fast cloning, backtrack – tùy edition)  |
+| Độ phức tạp & cost                | Đơn giản hơn, thường **rẻ hơn** với workload nhỏ‑trung bình                                | Nhiều tính năng hơn, thường **đắt hơn** nhưng bù lại hiệu năng & HA/Global mạnh                          |
+| Khi nào nên dùng                  | Ứng dụng nhỏ‑trung bình, yêu cầu chuẩn, chi phí ưu tiên; dễ migrate 1‑1 từ on‑prem         | Ứng dụng cần scale lớn, HA cao, nhiều read, multi‑AZ/multi‑region, hoặc cần serverless/Global Database   |
+
+> Gợi ý nhanh:
+> - Workload nhỏ/trung bình, không cần global, ưu tiên chi phí → **RDS MySQL/PG** là đủ.  
+> - Workload lớn, read-heavy, cần HA mạnh, multi‑AZ/multi‑region, hoặc muốn serverless → cân nhắc **Aurora**.
+
