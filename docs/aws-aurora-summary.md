@@ -565,3 +565,64 @@ resource "aws_rds_cluster_instance" "aurora_mysql_reader_2" {
 ```
 
 _Thực tế bạn có thể dùng count để tạo nhiều readers hơn, hoặc tách resource nếu muốn gán tag/setting riêng._
+
+
+Tạo nhiều Aurora Readers bằng `count` trong Terraform
+
+```hcl
+# Aurora MySQL cluster (giữ nguyên như trước)
+resource "aws_rds_cluster" "aurora_mysql" {
+  cluster_identifier      = "aurora-mysql-cluster"
+  engine                  = "aurora-mysql"
+  engine_version          = "5.7.mysql_aurora.2.11.2"
+  database_name           = "myappdb"
+  master_username         = "masteruser"
+  master_password         = "StrongPassw0rd!"
+  backup_retention_period = 7
+  preferred_backup_window = "02:00-03:00"
+  storage_encrypted       = true
+  kms_key_id              = aws_kms_key.rds.arn
+  db_subnet_group_name    = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+
+  tags = {
+    Name = "aurora-mysql-cluster"
+  }
+}
+
+# Writer (1 instance)
+resource "aws_rds_cluster_instance" "aurora_mysql_writer" {
+  identifier          = "aurora-mysql-writer-0"
+  cluster_identifier  = aws_rds_cluster.aurora_mysql.id
+  engine              = aws_rds_cluster.aurora_mysql.engine
+  engine_version      = aws_rds_cluster.aurora_mysql.engine_version
+  instance_class      = "db.m6g.large"
+  publicly_accessible = false
+
+  tags = {
+    Role = "writer"
+  }
+}
+
+# Readers (dùng count)
+variable "aurora_reader_count" {
+  type    = number
+  default = 2
+}
+
+resource "aws_rds_cluster_instance" "aurora_mysql_reader" {
+  count              = var.aurora_reader_count
+  identifier         = "aurora-mysql-reader-${count.index}"
+  cluster_identifier = aws_rds_cluster.aurora_mysql.id
+  engine             = aws_rds_cluster.aurora_mysql.engine
+  engine_version     = aws_rds_cluster.aurora_mysql.engine_version
+  instance_class     = "db.m6g.large"
+  publicly_accessible = false
+
+  tags = {
+    Role  = "reader"
+    Index = count.index
+  }
+}
+
+```
