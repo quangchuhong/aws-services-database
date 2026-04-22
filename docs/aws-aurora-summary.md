@@ -240,3 +240,48 @@ Nguyên tắc:
 | Workload không ổn định, dev/test, POC, hoặc app ít dùng                               | **2.4 – Aurora Serverless** (v1/v2)                       | Không cần chọn instance size, auto scale ACU; phù hợp khi traffic khó đoán hoặc không chạy 24/7         |
 | Đọc rất nhiều, dữ liệu tương đối ổn định, muốn giảm latency & chi phí Aurora queries | **2.5 – Aurora + ElastiCache (Cache-Aside)**              | Aurora là source of truth; Redis/Memcached đứng trước để cache kết quả đọc lặp lại                       |
 | Kiến trúc microservices, vài domain cần Aurora (tính năng/hiệu năng)                  | **2.6 – Microservices + nhiều Aurora cluster riêng**      | Mỗi service own cluster riêng (Aurora MySQL/PG), dễ scale độc lập, giảm coupling giữa domain            |
+
+---
+
+## 3. Aurora Auto Scaling (Compute, Readers, Storage)
+
+Aurora có 3 cơ chế “tự co giãn” khác nhau:
+
+1. **Auto scaling compute** (Aurora Serverless).
+2. **Auto scaling số lượng Aurora Replicas** (Reader Auto Scaling).
+3. **Auto scaling storage** (luôn bật, tới 64 TB).
+
+
+### 3.1. Auto Scaling Compute – Aurora Serverless
+
+**Áp dụng cho:** Aurora Serverless v1/v2 (MySQL/PG).
+
+- Bạn **không chọn instance size cố định**, mà chọn **range ACU** (Aurora Capacity Units), ví dụ: `minCapacity = 2`, `maxCapacity = 64`.
+- Aurora tự động:
+  - Tăng ACU khi tải (CPU, connections, throughput) tăng.
+  - Giảm ACU khi tải giảm.
+- Với v1: có thể **pause** khi idle để không tốn tiền.
+
+**Workflow đơn giản:**
+
+```text
+        +---------------------------+
+        |  Application Traffic      |
+        +-------------+-------------+
+                      |
+                      v
+             +----------------------+
+             | Aurora Serverless    |
+             |  (ACU auto-scale)    |
+             +----------+-----------+
+                        |
+             Monitor load (CPU, conn,
+             throughput, queue length)
+                        |
+        +---------------+----------------+
+        |                                |
+        v                                v
+   Low load                       High load
+(ACU giảm xuống min)          (ACU tăng tới max)
+
+```
