@@ -897,3 +897,104 @@ Bảng này giúp chọn nhanh giữa **Aurora MySQL/PG** và **RDS MySQL/PG chu
 > - Workload nhỏ/trung bình, không cần global, ưu tiên chi phí → **RDS MySQL/PG** là đủ.  
 > - Workload lớn, read-heavy, cần HA mạnh, multi‑AZ/multi‑region, hoặc muốn serverless → cân nhắc **Aurora**.
 
+---
+
+## 11. Chi phí (Cost) cho Aurora – Tóm tắt
+
+Chi phí Aurora khác RDS thường ở chỗ: **storage & I/O tách riêng** và **có ACU nếu dùng Serverless**.
+
+### 11.1. Thành phần chi phí chính
+
+| Thành phần                  | Mô tả                                                                                  |
+|----------------------------|----------------------------------------------------------------------------------------|
+| Compute (instance hours)   | Tiền cho **Aurora instances** (writer + readers) – provisioned (`db.r6g.*`, `db.m6g.*`) |
+| Compute (ACU)              | Với **Aurora Serverless v2**: trả theo **ACU-hours** thực dùng                        |
+| Storage                    | GB dữ liệu trong storage layer Aurora (auto-scale đến 64 TB), tính theo **GB/tháng**  |
+| I/O (database I/O)         | Số lượng request I/O (per million requests), tùy pricing Aurora                       |
+| Backup (Continuous backup) | Backup liên tục ra S3, thường free tới 100% dung lượng DB, vượt → tính **GB/tháng**   |
+| Snapshots                  | Manual snapshots tính **GB/tháng** (như RDS)                                          |
+| Data transfer              | Dữ liệu ra Internet / cross‑Region (Global DB, cross‑Region replica) tính riêng       |
+
+### 11.2. Provisioned Aurora Cluster (Writer + Readers)
+
+Ví dụ: Aurora MySQL provisioned, 1 writer + 2 readers:
+
+- **Compute**:
+  - 3 instance × (giờ/tháng) × giá instance type (vd `db.r6g.large`).
+- **Storage**:
+  - 200 GB Aurora storage layer → 200 GB/tháng.
+- **I/O**:
+  - Số giao dịch I/O (read/write) → tính theo triệu request.
+- **Backup**:
+  - Free tới ≈ 200 GB backup; vượt sẽ tính phí.
+
+### 11.3. Aurora Serverless v2
+
+- **Compute**:
+  - Không tính theo instance cố định, mà theo **ACU-hours**:
+    - Aurora scale ACU giữa `min_capacity` và `max_capacity`.
+    - Bạn trả tiền theo ACU thực tế nó sử dụng theo thời gian.
+- **Storage, I/O, backup, data transfer**:
+  - Tương tự Aurora provisioned.
+
+Use case:
+
+- Workload khó đoán / biến động:
+  - Thay vì trả 24/7 cho `db.r6g.large`, bạn đặt `min_capacity` và `max_capacity`, để Aurora tự co giãn.
+
+### 11.4. Aurora vs RDS – góc nhìn chi phí
+
+- **Aurora** thường:
+  - **Đắt hơn** RDS MySQL/PG cho workload nhỏ/trung bình.
+  - **Hợp lý hơn / rẻ hơn** với workload lớn, nhiều read, cần HA/Global mạnh:
+    - Nhờ:
+      - Scale read với nhiều Aurora Replicas.
+      - Shared storage (replica không nhân đôi storage).
+      - Aurora Global Database (multi‑Region).
+- **RDS MySQL/PG**:
+  - Hợp lý hơn cho:
+    - Ứng dụng nhỏ/vừa.
+    - Không cần nhiều replica hoặc Global.
+    - Ưu tiên chi phí thấp hơn, yêu cầu HA vừa phải.
+
+### 11.5. Cách tự ước lượng chi phí Aurora
+
+1. **Xác định mô hình**:
+   - Provisioned (writer + N readers) hay Serverless v2?
+   - Có Aurora Global Database không?
+
+2. **Ước lượng tài nguyên**:
+   - Provisioned:
+     - Số instance (writer + readers), loại instance (`db.r6g.large`, …).
+   - Serverless v2:
+     - Range ACU (`min_capacity`, `max_capacity`), và ACU usage dự kiến.
+   - Dung lượng dữ liệu (GB), tăng trưởng/tháng.
+   - Số I/O ước tính (read/write).
+
+3. **Dùng AWS Pricing Calculator**:
+   - Chọn **Aurora**.
+   - Nhập:
+     - Số instance + loại instance (hoặc ACU usage cho serverless).
+     - Storage (GB).
+     - Database I/O (theo triệu request).
+     - Backup storage.
+   - Xem chi phí/tháng cho từng cấu hình: single‑region, + readers, + Global DB.
+
+### 11.6. Mẹo tối ưu chi phí Aurora
+
+- Dùng **ít reader nhất có thể**:
+  - Chỉ thêm reader khi thực sự cần scale read/HA.
+- Với **Serverless v2**:
+  - Đặt `min_capacity` vừa đủ để idle không tốn quá nhiều.
+  - Theo dõi metrics để chỉnh `max_capacity` không quá dư.
+- Dọn **manual snapshots** cũ:
+  - Snapshot Aurora cũng tính GB/tháng giống RDS.
+- Với Aurora Global Database:
+  - Cẩn trọng với:
+    - Số Region replica.
+    - Storage & compute ở mỗi Region.
+    - Data transfer cross‑Region.
+
+> Nhớ: **Compute (instance/ACU) + Storage + I/O** là 3 thành phần lớn nhất.  
+> Luôn dùng AWS Pricing Calculator để thử nhiều mô hình (1 writer vs 1 writer + 2 readers vs Serverless v2) trước khi chốt kiến trúc.
+
