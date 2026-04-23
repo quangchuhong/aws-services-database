@@ -779,3 +779,86 @@ Với DB rất lớn (TB), nên cân nhắc:
 
     - Chia nhỏ theo schema/module.
     - Kết hợp Pre‑load bulk data (Data Pump/S3) + DMS CDC để giảm thời gian full load.
+
+---
+
+## 10. Chi phí (Cost) cho RDS – Tóm tắt
+
+Chi phí RDS chủ yếu gồm:
+
+1. **Compute (DB instance hours)**
+2. **Storage (GB/tháng)**
+3. **IOPS / I/O requests (tùy loại storage)**
+4. **Backup & snapshots**
+5. **Data transfer**
+
+### 10.1. Thành phần chi phí chính
+
+| Thành phần            | Mô tả                                                                                  | Ví dụ                                                      |
+|-----------------------|-----------------------------------------------------------------------------------------|------------------------------------------------------------|
+| DB instance hours     | Tiền cho **loại instance** bạn chọn, tính theo giờ (on‑demand hoặc reserved)           | `db.t3.medium`, `db.m6g.large`, `db.r6g.2xlarge`…         |
+| Storage               | Dung lượng đĩa cấp cho DB, tính theo **GB/tháng**                                      | 100 GB gp3, 500 GB io1, …                                  |
+| IOPS / I/O requests   | Với `io1` (provisioned IOPS) hoặc một phần `gp3`: trả thêm theo số IOPS provisioned     | 10.000 IOPS io1                                            |
+| Backup (Automated)    | Backup miễn phí tới **100% dung lượng DB**; vượt quá tính thêm **GB/tháng**           | DB 200 GB → free ~200 GB backup; thêm nữa sẽ bị tính phí   |
+| Snapshots thủ công    | Manual snapshots tính phí theo **GB/tháng** (không free quota như automated)          | Snapshot 500 GB giữ 3 tháng → 500 GB × 3 tháng             |
+| Data transfer         | Dữ liệu ra Internet / cross‑Region tính riêng; nội bộ AZ/Region thường rẻ hoặc free    | App ngoài VPC truy cập RDS, cross‑Region replication      |
+
+### 10.2. Ảnh hưởng Multi-AZ, Read Replicas, Aurora
+
+- **Multi‑AZ (RDS thường)**:
+  - Tính phí **instance** cho cả Primary + Standby.
+  - Storage: mỗi instance có EBS riêng → dung lượng & I/O tính cho từng cái.
+
+- **Read Replicas (RDS)**:
+  - Mỗi replica = 1 instance + storage riêng → tính phí như một DB instance nữa.
+  - Nếu cross‑Region: thêm phí **data transfer** giữa region.
+
+- **Aurora** (nếu so với RDS):
+  - Tính riêng:
+    - **Compute**: instance hours (hoặc ACU với Serverless).
+    - **Storage**: GB thực dùng trong storage layer Aurora.
+    - **I/O**: thường tính theo **số request I/O** (per million requests).
+  - Aurora Replicas: chỉ thêm **compute** (shared storage, không thêm storage nhiều lần như RDS thường).
+
+### 10.3. Cách tự ước lượng chi phí (thực tế)
+
+1. **Xác định mô hình**:
+   - Single‑AZ hay Multi‑AZ?
+   - Có Read Replica không? (bao nhiêu replica?)
+   - RDS thường hay Aurora?
+
+2. **Tạm ước lượng tài nguyên**:
+   - Instance type (ví dụ `db.m6g.large`).
+   - Dung lượng storage (ví dụ 200 GB gp3).
+   - Số IOPS (nếu dùng io1 hoặc gp3 custom IOPS).
+   - Retention backup (7 / 14 / 30 ngày).
+
+3. **Dùng AWS Pricing Calculator**:
+   - Vào: https://calculator.aws/
+   - Chọn **RDS** hoặc **Aurora**.
+   - Nhập:
+     - Instance type, số giờ/tháng (thường 730h cho 24/7).
+     - Storage (GB), IOPS nếu có.
+     - Multi‑AZ, số Read Replica.
+     - Backup storage ước lượng.
+   - Xem tổng chi phí/tháng.
+
+### 10.4. Một số mẹo tối ưu chi phí nhanh
+
+- Dev/Test:
+  - Dùng instance nhỏ/burstable (`db.t3.small`, `db.t4g.small`).
+  - Tắt Multi‑AZ, giảm backup retention (1–3 ngày).
+  - Dùng **stop/start RDS** nếu không cần 24/7 (RDS thường).
+
+- Prod:
+  - Chỉ bật Multi‑AZ, Read Replica cho **DB thật sự cần**.
+  - Theo dõi:
+    - CPU, Memory, IOPS:
+      - Nếu luôn thấp → có thể **giảm instance class**.
+      - Nếu cao → scale up hoặc tối ưu query.
+  - Định kỳ:
+    - Xóa manual snapshots cũ không cần.
+    - Review cross‑Region replication nếu không thực sự cần.
+
+> Ghi nhớ: **Compute (instance)** thường chiếm phần lớn hóa đơn RDS, sau đó là **storage + backup**.  
+> Sử dụng AWS Pricing Calculator cho từng mô hình (Single‑AZ, Multi‑AZ, +Replicas, Aurora) để có con số cụ thể.
